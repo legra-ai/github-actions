@@ -28,6 +28,9 @@ the action name to view its documentation:
 - **[setup-dioxus](setup-dioxus/README.md)** - Install Dioxus CLI
 - **[setup-ekg-cli](setup-ekg-cli/README.md)** - Build EKG CLI
   (project-specific)
+- **[setup-rust-toolchain-from-file](setup-rust-toolchain-from-file/README.md)** -
+  Read the channel from `rust-toolchain.toml` and install the toolchain,
+  optionally adding the Swatinem shared rust-cache
 
 ### Version Management Actions
 
