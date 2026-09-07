@@ -13,25 +13,15 @@ Every considered commit must match the scoped Conventional Commit policy shared
 with PR-title and merge-time validation. Invalid headers fail, including during
 manual bumps and initial releases; no unknown-message patch fallback exists.
 
-On main, when the unreleased history calls for a new version, `cargo version-info`
-prepares the version and its configured companion files on the `release/pending`
-branch (reset to the current main so the branch carries exactly one commit), records
-it through GitHub's GraphQL API as a verified commit, and opens or refreshes the
-pull request `chore(release): prepare <version>`. Main itself is never written:
-every merge into main requires the owner's approval (or an agent acting for the
-owner), and the release commit is no exception. That run returns `release=false`.
-Once the release pull request is squash-merged, the next main run finds the
-manifest version without a tag and returns `release=true` with that exact merge
-revision, which the calling pipeline validates, tags and publishes. A main
-checkout that is no longer the remote head never prepares anything. PR runs
-return their checked-out revision without mutation.
-
-A pull request created with the workflow token receives its `pull_request` checks
-but no `pull_request_target` event, so the trusted title check never runs for the
-release PR. The action generated that title and validates it against the shared
-commit policy, then records the verdict as the `Conventional Commit` commit status
-on the release head. The calling job therefore needs `contents: write`,
-`pull-requests: write` and `statuses: write`.
+On main, `cargo version-info` prepares the version and its configured companion
+files and GitHub's GraphQL API records a verified commit on main with an
+expected-head guard. `GH_TOKEN` must be the organisation's release-writer GitHub
+App token, minted per run and scoped to the repository: the App is a bypass
+actor on the main rulesets (the review gate exists for outside contributors),
+and its push starts the ordinary main pipeline, which resumes at that exact
+prepared commit instead of preparing again. A main checkout that is no longer
+the remote head never prepares anything. PR runs return their checked-out
+revision without mutation.
 
 Requires a full git checkout, Python 3.11+, Rust and GitHub CLI.
 No publishing token is used here. Registry publication belongs exclusively to the
