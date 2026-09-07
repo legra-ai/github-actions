@@ -1,5 +1,9 @@
 name: Merge tested Dependabot update
-description: Merge the exact Dependabot head validated by a completed CI run and dispatch main CI
+description: Merge the exact Dependabot head validated by a completed CI run
+inputs:
+  token:
+    required: true
+    description: Authorized writer token (the release-writer GitHub App, minted per run); its merge starts the main pipeline
 runs:
   using: composite
   steps:
@@ -7,6 +11,7 @@ runs:
       env:
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       with:
+        github-token: ${{ inputs.token }}
         script: |
           const merge = require(`${process.env.RELEASE_ACTION_PATH}/merge.cjs`);
           await merge(github, context);

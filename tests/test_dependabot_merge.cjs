@@ -13,15 +13,14 @@ function fixture() {
   return {calls, run, pr, github, context: {repo: {owner: 'org', repo: 'crate'}, payload: {workflow_run: run}}};
 }
 
-test('successful CI merges only its tested head and dispatches main CI', async () => {
+test('successful CI merges only its tested head; the writer merge itself starts main CI', async () => {
   const f = fixture();
   await merge(f.github, f.context);
   assert.equal(f.calls[0].sha, 'tested');
   assert.equal(f.calls[0].merge_method, 'squash');
   assert.equal(f.calls[0].commit_title, 'build(deps): update serde (#1)');
   assert.equal(f.calls[0].commit_message, 'Dependency update.');
-  assert.equal(f.calls[1].workflow_id, 'ci.yml');
-  assert.equal(f.calls[1].ref, 'main');
+  assert.equal(f.calls.length, 1, 'no explicit dispatch: the App-token merge triggers the push run');
 });
 
 for (const title of ['Update serde', 'build: update serde', 'oops(deps): update serde', 'fix(deps): ok\nforged']) {

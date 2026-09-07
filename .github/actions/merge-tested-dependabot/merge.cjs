@@ -19,7 +19,7 @@ module.exports = async function mergeTestedDependabot(github, context) {
       commit_title: `${title} (#${pr.number})`, commit_message: pr.body || '',
     });
     if (!result.merged) throw new Error(`Merge refused for PR ${pr.number}`);
-    // GITHUB_TOKEN merges do not emit a push workflow run. Explicitly start it.
-    await github.rest.actions.createWorkflowDispatch({owner, repo, workflow_id: 'ci.yml', ref: 'main'});
+    // The writer token is an installed App, so this merge starts the push
+    // pipeline on main by itself; no explicit dispatch is needed.
   }
 };
