@@ -1,5 +1,9 @@
 name: Prepare Cargo release
 description: Select the version and signed revision that every validation and publication job must use
+inputs:
+  token:
+    required: true
+    description: Authorized writer token (the release-writer GitHub App, minted per run and scoped to this repository); records the version commit on main
 outputs:
   revision:
     description: Exact revision to test, build, tag and publish
@@ -17,6 +21,6 @@ runs:
     - id: prepare
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ inputs.token }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       run: python3 "$RELEASE_ACTION_PATH/release.py"

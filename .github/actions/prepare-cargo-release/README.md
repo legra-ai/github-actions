@@ -15,7 +15,7 @@ manual bumps and initial releases; no unknown-message patch fallback exists.
 
 On main, `cargo version-info` prepares the version and its configured companion
 files and GitHub's GraphQL API records a verified commit on main with an
-expected-head guard. `GH_TOKEN` must be the organisation's release-writer GitHub
+expected-head guard. The `token` input must be the organisation's release-writer GitHub
 App token, minted per run and scoped to the repository: the App is a bypass
 actor on the main rulesets (the review gate exists for outside contributors),
 and its push starts the ordinary main pipeline, which resumes at that exact
