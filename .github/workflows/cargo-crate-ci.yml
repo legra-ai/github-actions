@@ -42,18 +42,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: rustfmt
       - name: Check formatting
-        run: cargo +nightly fmt --all -- --check
+        run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: clippy
       - uses: actions/cache@v5
@@ -69,7 +69,7 @@ jobs:
           path: target
           key: ${{ runner.os }}-target-clippy-${{ hashFiles('**/Cargo.lock') }}
       - name: Run clippy
-        run: cargo +nightly clippy --all-targets --all-features -- -D warnings -W missing-docs
+        run: cargo clippy --all-targets --all-features -- -D warnings -W missing-docs
 
   test:
     name: Test
@@ -80,6 +80,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.99.1
       - name: Run tests
         shell: bash
         env:
@@ -165,6 +167,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.99.1
 
       # Treats "already exists on crates.io" as success so the job is
       # safely re-runnable. See dotenvage commit 0e30aa3 for context.
@@ -223,6 +227,7 @@ jobs:
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          toolchain: 1.99.1
           target: ${{ matrix.platform.target }}
           cache: false  # Swatinem/rust-cache below for custom config
 

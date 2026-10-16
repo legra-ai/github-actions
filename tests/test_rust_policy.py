@@ -10,6 +10,13 @@ SOURCE = Path(__file__).resolve().parents[1] / "scripts/rust_policy.py"
 
 
 class RustPolicyTests(unittest.TestCase):
+    def test_shared_crate_workflow_uses_the_exact_stable_compiler(self):
+        workflow = SOURCE.parents[1] / ".github/workflows/cargo-crate-ci.yml"
+        text = workflow.read_text()
+        self.assertNotIn("cargo +nightly", text)
+        self.assertNotIn("rust-toolchain@nightly", text)
+        self.assertIn("rust-toolchain@1.99.1", text)
+
     def setUp(self):
         spec = importlib.util.spec_from_file_location("rust_policy", SOURCE)
         self.policy = importlib.util.module_from_spec(spec)
