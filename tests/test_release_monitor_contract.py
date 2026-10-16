@@ -22,6 +22,7 @@ class ContractTests(unittest.TestCase):
             'crates': 'dotenvage', 'npm': '@dotenvage/node', 'pypi': 'dotenvage'})
         self.assertEqual(len(config['cli_assets']), 6)
         self.assertEqual(config['recovery_asset'], 'release-packages.zip')
+        self.assertEqual(config['assignee'], 'jgeluk')
 
     def test_monitor_is_scheduled_in_a_different_repository(self):
         workflow = (ROOT / '.github/workflows/release-health.yml').read_text()
@@ -34,7 +35,7 @@ class ContractTests(unittest.TestCase):
         self.assertIn('release_monitor.py monitor .github/release-health.json', workflow)
 
     def test_configuration_rejects_unsupported_registry_and_missing_channels(self):
-        valid = {'repository': 'owner/example', 'workflow': 'ci.yml',
+        valid = {'repository': 'owner/example', 'workflow': 'ci.yml', 'assignee': 'jgeluk',
                  'registries': {'crates': 'example'}, 'cli_assets': ['example.zip'],
                  'recovery_asset': 'release-packages.zip'}
         for changes in [{'registries': {}}, {'registries': {'unknown': 'example'}},

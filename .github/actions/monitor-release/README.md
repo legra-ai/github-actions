@@ -16,7 +16,7 @@ The two-hour publication window applies only to packages that are still
 absent. Authentication, registry service, identity and download failures fail
 immediately. A pending result cannot close an existing alert.
 
-The monitor creates one bot-owned issue per unhealthy repository in the
+The monitor creates one bot-owned issue assigned to the configured human owner per unhealthy repository in the
 monitoring repository, updates/reopens that same issue on recurrence, and closes
 it only after every check passes. A failed check also fails the workflow and
 writes its findings to the job summary. GitHub issue subscriptions and Actions
@@ -25,7 +25,7 @@ failure notifications deliver the alerts; owners must keep those enabled.
 Use a token with public GitHub read access and issue-write access to the
 monitoring repository. Registry requests and artifact downloads never receive
 the GitHub token. This monitor is for public repositories and stable `x.y.z`
-versions. Register package identities and every supported CLI archive explicitly.
+versions. Register an alert assignee, package identities and every supported CLI archive explicitly.
 
 Read-only local verification:
 

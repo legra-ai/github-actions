@@ -3,6 +3,7 @@
     {
       "repository": "legra-ai/dotenvage",
       "workflow": "ci.yml",
+      "assignee": "jgeluk",
       "registries": {
         "crates": "dotenvage",
         "npm": "@dotenvage/node",

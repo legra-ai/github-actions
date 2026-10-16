@@ -126,9 +126,10 @@ class AlertTests(unittest.TestCase):
 
     def test_unhealthy_opens_one_actionable_issue(self):
         report = Report('owner/example', 'unhealthy', ['npm version missing'])
-        reconcile(self.api, 'owner/monitor', report)
+        reconcile(self.api, 'owner/monitor', report, 'jgeluk')
         self.assertEqual(len(self.api.writes), 1)
         self.assertIn('npm version missing', self.api.writes[0][1]['body']['body'])
+        self.assertEqual(self.api.writes[0][1]['body']['assignees'], ['jgeluk'])
 
     def existing(self, state='open'):
         self.api.responses[self.path] = [{
@@ -139,17 +140,17 @@ class AlertTests(unittest.TestCase):
 
     def test_pending_release_does_not_close_an_existing_alert(self):
         self.existing()
-        reconcile(self.api, 'owner/monitor', Report('owner/example', 'pending', []))
+        reconcile(self.api, 'owner/monitor', Report('owner/example', 'pending', []), 'jgeluk')
         self.assertEqual(self.api.writes, [])
 
     def test_fully_verified_recovery_closes_existing_alert(self):
         self.existing()
-        reconcile(self.api, 'owner/monitor', Report('owner/example', 'healthy', []))
+        reconcile(self.api, 'owner/monitor', Report('owner/example', 'healthy', []), 'jgeluk')
         self.assertEqual(self.api.writes[0][1]['body']['state'], 'closed')
 
     def test_failure_reopens_the_same_issue_instead_of_creating_duplicates(self):
         self.existing('closed')
-        reconcile(self.api, 'owner/monitor', Report('owner/example', 'unhealthy', ['failed']))
+        reconcile(self.api, 'owner/monitor', Report('owner/example', 'unhealthy', ['failed']), 'jgeluk')
         self.assertEqual(len(self.api.writes), 1)
         self.assertEqual(self.api.writes[0][0], 'repos/owner/monitor/issues/7')
         self.assertEqual(self.api.writes[0][1]['body']['state'], 'open')
@@ -157,7 +158,7 @@ class AlertTests(unittest.TestCase):
     def test_public_issue_cannot_impersonate_a_monitor_owned_alert(self):
         self.existing()
         self.api.responses[self.path][0]['user']['login'] = 'another-user'
-        reconcile(self.api, 'owner/monitor', Report('owner/example', 'unhealthy', ['failed']))
+        reconcile(self.api, 'owner/monitor', Report('owner/example', 'unhealthy', ['failed']), 'jgeluk')
         self.assertEqual(self.api.writes[0][0], 'repos/owner/monitor/issues')
 
 

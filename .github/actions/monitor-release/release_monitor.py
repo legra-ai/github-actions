@@ -12,12 +12,14 @@ from release_http import API
 
 
 def validate_config(config):
-    if set(config) != {'repository', 'workflow', 'registries', 'cli_assets', 'recovery_asset'}:
+    if set(config) != {'repository', 'workflow', 'registries', 'cli_assets', 'recovery_asset', 'assignee'}:
         raise ValueError('Release monitor configuration has missing or unknown fields')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*', config['repository']):
         raise ValueError('Expected an owner/repository identity')
     if not re.fullmatch(r'[A-Za-z0-9_.-]+\.ya?ml', config['workflow']):
         raise ValueError('Expected a workflow filename')
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]*', config['assignee']):
+        raise ValueError('Expected a GitHub alert owner')
     registries = config['registries']
     if not registries or set(registries) - {'crates', 'npm', 'pypi'}:
         raise ValueError('Expected explicitly supported publication registries')
@@ -65,7 +67,7 @@ def main():
             with open(summary, 'a') as stream:
                 stream.write(f'## {report.repository}\n\n{report.body}\n\n')
         if args.command == 'monitor':
-            reconcile(api, os.environ['GITHUB_REPOSITORY'], report)
+            reconcile(api, os.environ['GITHUB_REPOSITORY'], report, config['assignee'])
         failed |= report.status == 'unhealthy'
     return int(failed)
 

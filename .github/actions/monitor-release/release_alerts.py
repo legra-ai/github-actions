@@ -1,7 +1,7 @@
 """Maintain one monitor-owned GitHub issue until verified recovery."""
 
 
-def reconcile(api, repository, report):
+def reconcile(api, repository, report, assignee):
     if report.status == 'pending':
         return
     marker = f'<!-- release-health:{report.repository} -->'
@@ -21,9 +21,10 @@ def reconcile(api, repository, report):
     else:
         raise ValueError('Issue history exceeds the 1,000-issue inspection limit')
     if existing:
-        body = {'state': 'closed' if report.status == 'healthy' else 'open', 'body': report.body}
+        body = {'state': 'closed' if report.status == 'healthy' else 'open',
+                'body': report.body, 'assignees': [assignee]}
         if existing['state'] != body['state'] or existing['body'] != body['body']:
             api.github(f'repos/{repository}/issues/{existing["number"]}', method='PATCH', body=body)
     elif report.status == 'unhealthy':
         api.github(f'repos/{repository}/issues', method='POST', body={
-            'title': f'Release health: {report.repository}', 'body': report.body})
+            'title': f'Release health: {report.repository}', 'body': report.body, 'assignees': [assignee]})
