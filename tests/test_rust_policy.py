@@ -76,6 +76,15 @@ class RustPolicyTests(unittest.TestCase):
         formatter.write_text("nightly-2026-10-16\n")
         self.assertEqual(self.policy.inspect(self.root), [])
 
+    def test_hook_does_not_pass_cargo_separator_to_formatter_wrapper(self):
+        hooks = self.root / ".githooks"
+        hooks.mkdir()
+        hook = hooks / "pre-commit"
+        hook.write_text("#!/bin/sh\n./scripts/fmt.sh -- --check\n")
+        self.assertTrue(self.policy.inspect(self.root))
+        hook.write_text("#!/bin/sh\n./scripts/fmt.sh --check\n")
+        self.assertEqual(self.policy.inspect(self.root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -41,6 +41,10 @@ def inspect(root: Path, *, allow_nightly: bool = False) -> list[str]:
             errors.append(f"rustfmt-toolchain must pin {RUSTFMT_TOOLCHAIN}")
     elif not dated_nightly:
         errors.append("missing nightly rustfmt-toolchain pin")
+    for directory in [".githooks", ".git-hooks"]:
+        hook = root / directory / "pre-commit"
+        if hook.is_file() and re.search(r"\./scripts/fmt\.sh\s+--\s+--check", hook.read_text()):
+            errors.append(f"{directory}/pre-commit must call fmt.sh --check without a Cargo separator")
     return errors
 
 
