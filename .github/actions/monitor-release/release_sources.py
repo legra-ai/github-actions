@@ -6,6 +6,10 @@ from urllib.parse import quote
 import zipfile
 
 
+class NotPublished(ValueError):
+    """An expected publication is still absent, without a service/authentication failure."""
+
+
 class Sources:
     def tag_revision(self, version):
         obj = self.api.github(f'{self.root}/git/ref/tags/v{version}')['object']
@@ -45,15 +49,15 @@ class Sources:
         for kind, name in self.config['registries'].items():
             try:
                 getattr(self, f'check_{kind}')(name, version, manifest)
-            except Exception as error:
+            except NotPublished as error:
                 failures.append(f'{kind}: {error}')
         if failures:
-            raise ValueError('; '.join(failures))
+            raise NotPublished('; '.join(failures))
 
     def check_crates(self, name, version, manifest):
         metadata = self.api.json(f'https://crates.io/api/v1/crates/{quote(name)}/{version}')
         if metadata is None or metadata['version']['num'] != version:
-            raise ValueError(f'{name} {version} is missing')
+            raise NotPublished(f'{name} {version} is missing')
         with self.api.download(f'https://crates.io/api/v1/crates/{quote(name)}/{version}/download') as (path, _):
             with tarfile.open(path) as archive:
                 member = archive.getmember(f'{name}-{version}/.cargo_vcs_info.json')
@@ -66,7 +70,7 @@ class Sources:
     def check_npm(self, name, version, manifest):
         metadata = self.api.json(f'https://registry.npmjs.org/{quote(name, safe="")}/{version}')
         if metadata is None or metadata['version'] != version:
-            raise ValueError(f'{name} {version} is missing')
+            raise NotPublished(f'{name} {version} is missing')
         with self.api.download(metadata['dist']['tarball']) as (_, digest):
             if manifest:
                 packages = {name: value for name, value in manifest['files'].items() if name.endswith('.tgz')}
@@ -76,7 +80,7 @@ class Sources:
     def check_pypi(self, name, version, manifest):
         metadata = self.api.json(f'https://pypi.org/pypi/{quote(name)}/{version}/json')
         if metadata is None or metadata['info']['version'] != version:
-            raise ValueError(f'{name} {version} is missing')
+            raise NotPublished(f'{name} {version} is missing')
         files = metadata['urls']
         if len(files) > 64:
             raise ValueError('PyPI version exceeds the 64-file inspection limit')
@@ -94,7 +98,7 @@ class Sources:
 
     def check_cli(self, version, release):
         if release is None or release['draft']:
-            raise ValueError(f'CLI v{version} downloads are not public')
+            raise NotPublished(f'CLI v{version} downloads are not public')
         for name in self.config['cli_assets']:
             matches = [item for item in release['assets'] if item['name'] == name]
             if len(matches) != 1:

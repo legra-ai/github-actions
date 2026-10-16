@@ -95,6 +95,12 @@ class HealthTests(unittest.TestCase):
             draft=True, created_at=NOW.isoformat())
         self.assertEqual(self.inspector.inspect().status, 'pending')
 
+    def test_recent_draft_does_not_mask_registry_service_or_authentication_errors(self):
+        self.api.responses['repos/owner/example/releases/tags/v1.2.3'].update(
+            draft=True, created_at=NOW.isoformat())
+        self.inspector.check_registries.side_effect = RuntimeError('registry HTTP 403')
+        self.assertEqual(self.inspector.inspect().status, 'unhealthy')
+
     def test_stale_draft_is_unhealthy(self):
         self.api.responses['repos/owner/example/releases/tags/v1.2.3']['draft'] = True
         self.assertEqual(self.inspector.inspect().status, 'unhealthy')

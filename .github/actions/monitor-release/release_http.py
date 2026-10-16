@@ -55,7 +55,13 @@ class API:
             path = Path(directory) / 'artifact'
             digest = hashlib.sha256()
             size = 0
-            with urlopen(url, timeout=30) as source, path.open('wb') as destination:
+            request = Request(url, headers={'User-Agent': 'legra-release-health'})
+            try:
+                source = urlopen(request, timeout=30)
+            except HTTPError as error:
+                error.close()
+                raise RuntimeError(f'HTTP {error.code}: {url}') from None
+            with source, path.open('wb') as destination:
                 while chunk := source.read(64 * 1024):
                     size += len(chunk)
                     if size > 512 * 1024 * 1024:

@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 import tomllib
 
-from release_sources import Sources
+from release_sources import NotPublished, Sources
 
 
 @dataclass
@@ -110,12 +110,14 @@ class Inspector(Sources):
             for check in (self.check_registries, self.check_cli):
                 try:
                     check(version, release)
-                except Exception as error:
+                except NotPublished as error:
                     publication.append(str(error))
+                except Exception as error:
+                    findings.append(str(error))
             if not pending or age > 2:
                 findings.extend(publication)
             self.check_unreleased(version)
             status = 'unhealthy' if findings else ('pending' if pending else 'healthy')
-            return Report(self.config['repository'], status, findings)
+            return Report(self.config['repository'], status, findings or (publication if pending else []))
         except Exception as error:
             return Report(self.config['repository'], 'unhealthy', [*findings, str(error)])
