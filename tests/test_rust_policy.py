@@ -13,8 +13,8 @@ class RustPolicyTests(unittest.TestCase):
     def test_shared_crate_workflow_uses_the_exact_stable_compiler(self):
         workflow = SOURCE.parents[1] / ".github/workflows/cargo-crate-ci.yml"
         text = workflow.read_text()
-        self.assertNotIn("cargo +nightly", text)
-        self.assertNotIn("rust-toolchain@nightly", text)
+        self.assertNotIn("cargo +nightly ", text)
+        self.assertIn("rust-toolchain@nightly-2026-10-16", text)
         self.assertIn("rust-toolchain@1.99.1", text)
 
     def setUp(self):
@@ -30,6 +30,7 @@ class RustPolicyTests(unittest.TestCase):
         (self.root / "rust-toolchain.toml").write_text(
             '[toolchain]\nchannel = "1.99.1"\ncomponents = ["rustfmt", "clippy"]\n'
         )
+        (self.root / "rustfmt-toolchain").write_text("nightly-2026-10-16\n")
 
     def test_matching_stable_policy_passes(self):
         self.assertEqual(self.policy.inspect(self.root), [])
@@ -68,11 +69,11 @@ class RustPolicyTests(unittest.TestCase):
         toolchain.write_text('[toolchain]\nchannel = "nightly"\n')
         self.assertTrue(self.policy.inspect(self.root, allow_nightly=True))
 
-    def test_formatter_must_match_compiler(self):
+    def test_formatter_must_use_the_pinned_nightly(self):
         formatter = self.root / "rustfmt-toolchain"
-        formatter.write_text("nightly-2026-08-22\n")
-        self.assertTrue(self.policy.inspect(self.root))
         formatter.write_text("1.99.1\n")
+        self.assertTrue(self.policy.inspect(self.root))
+        formatter.write_text("nightly-2026-10-16\n")
         self.assertEqual(self.policy.inspect(self.root), [])
 
 

@@ -11,6 +11,7 @@ import tomllib
 
 
 RUST_VERSION = "1.99.1"
+RUSTFMT_TOOLCHAIN = "nightly-2026-10-16"
 
 
 def inspect(root: Path, *, allow_nightly: bool = False) -> list[str]:
@@ -35,8 +36,11 @@ def inspect(root: Path, *, allow_nightly: bool = False) -> list[str]:
     if channel != RUST_VERSION and not dated_nightly:
         errors.append(f"toolchain: expected {RUST_VERSION}, got {channel}")
     formatter = root / "rustfmt-toolchain"
-    if formatter.is_file() and formatter.read_text().strip() != channel:
-        errors.append("rustfmt-toolchain must match the compiler toolchain")
+    if formatter.is_file():
+        if formatter.read_text().strip() != RUSTFMT_TOOLCHAIN:
+            errors.append(f"rustfmt-toolchain must pin {RUSTFMT_TOOLCHAIN}")
+    elif not dated_nightly:
+        errors.append("missing nightly rustfmt-toolchain pin")
     return errors
 
 
