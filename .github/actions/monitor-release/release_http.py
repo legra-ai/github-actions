@@ -18,7 +18,8 @@ class API:
         if path.startswith('/') or '://' in path:
             raise ValueError('Expected a relative GitHub API path')
         headers = {'Accept': 'application/vnd.github+json',
-                   'Authorization': f'Bearer {self.token}', 'User-Agent': 'legra-release-health'}
+                   'Authorization': f'Bearer {self.token}', 'User-Agent': 'legra-release-health',
+                   'Content-Type': 'application/json'}
         data = None if body is None else json.dumps(body).encode()
         return self.request_json(Request(f'https://api.github.com/{path}', data=data,
                                          headers=headers, method=method))

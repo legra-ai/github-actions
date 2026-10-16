@@ -133,6 +133,7 @@ class AlertTests(unittest.TestCase):
     def existing(self, state='open'):
         self.api.responses[self.path] = [{
             'number': 7, 'state': state, 'title': 'Release health: owner/example',
+            'user': {'login': 'github-actions[bot]'},
             'body': '<!-- release-health:owner/example -->\nold',
         }]
 
@@ -152,6 +153,12 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(len(self.api.writes), 1)
         self.assertEqual(self.api.writes[0][0], 'repos/owner/monitor/issues/7')
         self.assertEqual(self.api.writes[0][1]['body']['state'], 'open')
+
+    def test_public_issue_cannot_impersonate_a_monitor_owned_alert(self):
+        self.existing()
+        self.api.responses[self.path][0]['user']['login'] = 'another-user'
+        reconcile(self.api, 'owner/monitor', Report('owner/example', 'unhealthy', ['failed']))
+        self.assertEqual(self.api.writes[0][0], 'repos/owner/monitor/issues')
 
 
 if __name__ == '__main__':

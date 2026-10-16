@@ -10,7 +10,8 @@ def reconcile(api, repository, report):
     for page in range(1, 11):
         issues = api.github(f'repos/{repository}/issues?state=all&per_page=100&page={page}')
         matches = [issue for issue in issues if marker in (issue.get('body') or '')
-                   and not issue.get('pull_request')]
+                   and not issue.get('pull_request')
+                   and issue.get('user', {}).get('login') == 'github-actions[bot]']
         if len(matches) > 1 or (matches and existing):
             raise ValueError(f'Duplicate release-health issues for {report.repository}')
         if matches:

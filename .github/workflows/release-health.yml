@@ -1,0 +1,29 @@
+name: Release health
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/actions/monitor-release/**
+      - .github/release-health.json
+      - .github/workflows/release-health.yml
+permissions:
+  contents: read
+concurrency:
+  group: release-health
+  cancel-in-progress: false
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Inspect public publication and reconcile alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/monitor-release/release_monitor.py monitor .github/release-health.json

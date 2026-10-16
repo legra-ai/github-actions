@@ -1,0 +1,22 @@
+{
+  "repositories": [
+    {
+      "repository": "legra-ai/dotenvage",
+      "workflow": "ci.yml",
+      "registries": {
+        "crates": "dotenvage",
+        "npm": "@dotenvage/node",
+        "pypi": "dotenvage"
+      },
+      "cli_assets": [
+        "dotenvage-aarch64-apple-darwin.zip",
+        "dotenvage-x86_64-apple-darwin.zip",
+        "dotenvage-aarch64-unknown-linux-gnu.zip",
+        "dotenvage-x86_64-unknown-linux-gnu.zip",
+        "dotenvage-aarch64-pc-windows-msvc.zip",
+        "dotenvage-x86_64-pc-windows-msvc.zip"
+      ],
+      "recovery_asset": "release-packages.zip"
+    }
+  ]
+}
