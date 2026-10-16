@@ -8,6 +8,12 @@ This repository contains reusable composite actions for common CI/CD tasks
 in Rust projects. All actions provide caching and consistent behavior
 across workflows.
 
+Maintained Rust repositories use minimum Rust **1.99.1**, edition **2024**, and
+exact matching compiler, Clippy and rustfmt pins. Legra retains an explicitly
+dated nightly toolchain. Audit local repositories with
+`python3 scripts/rust_policy.py PATH [PATH ...]`; pass `--nightly-repo PATH`
+for the Legra checkout. This checks declared configuration, not build success.
+
 ## Available Actions
 
 See [`.github/actions/README.md`](.github/actions/README.md) for complete
