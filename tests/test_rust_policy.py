@@ -46,6 +46,13 @@ class RustPolicyTests(unittest.TestCase):
         toolchain.write_text('[toolchain]\nchannel = "stable"\n')
         self.assertTrue(self.policy.inspect(self.root))
 
+    def test_virtual_workspace_with_root_package_metadata(self):
+        (self.root / "Cargo.toml").write_text(
+            '[workspace.package]\nedition = "2024"\nrust-version = "1.99.1"\n'
+            '[package.metadata.release]\nshared = true\n'
+        )
+        self.assertEqual(self.policy.inspect(self.root), [])
+
     def test_nightly_requires_explicit_exception_and_exact_date(self):
         toolchain = self.root / "rust-toolchain.toml"
         toolchain.write_text('[toolchain]\nchannel = "nightly-2026-10-16"\n')

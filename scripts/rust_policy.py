@@ -17,7 +17,9 @@ def inspect(root: Path, *, allow_nightly: bool = False) -> list[str]:
     """Return policy violations for one repository's root configuration."""
     manifest = tomllib.loads((root / "Cargo.toml").read_text())
     workspace = manifest.get("workspace", {}).get("package", {})
-    package = manifest.get("package", workspace)
+    package = manifest.get("package", {})
+    if "name" not in package:
+        package = workspace
     errors = []
     for key, expected in [("rust-version", RUST_VERSION), ("edition", "2024")]:
         value = package.get(key)
