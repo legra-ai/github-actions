@@ -14,7 +14,8 @@ class RustPolicyTests(unittest.TestCase):
         workflow = SOURCE.parents[1] / ".github/workflows/cargo-crate-ci.yml"
         text = workflow.read_text()
         self.assertNotIn("cargo +nightly ", text)
-        self.assertIn("rust-toolchain@nightly-2026-10-16", text)
+        self.assertIn("rust-toolchain@nightly\n", text)
+        self.assertIn("toolchain: nightly-2026-10-16", text)
         self.assertIn("rust-toolchain@1.99.1", text)
 
     def setUp(self):
