@@ -40,6 +40,9 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
       - name: Validate maintenance inputs
         env:
           POLICY_REVISION: ${{ job.workflow_sha }}
@@ -70,7 +73,7 @@ jobs:
       - id: prepare
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token || github.token }}
-        run: python3 .release-policy/.github/actions/prepare-cargo-release/release.py
+        run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
       - id: manifest
         env:
           RELEASE_REVISION: ${{ steps.prepare.outputs.revision }}
@@ -103,6 +106,9 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
       - id: formatter
         shell: bash
         run: |
@@ -120,7 +126,9 @@ jobs:
       - run: cargo test --locked --all-targets
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo doc --locked --no-deps --all-features
-      - uses: ./.release-policy/.github/actions/test-cargo-package
+      - name: Test the distributable source archive
+        shell: bash
+        run: python3 "$POLICY_ROOT/.github/actions/test-cargo-package/package_test.py"
 
   binary:
     needs: prepare
@@ -153,6 +161,9 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
         with:
           target: ${{ matrix.target }}
@@ -164,7 +175,7 @@ jobs:
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
           RELEASE_TARGET: ${{ matrix.target }}
           RELEASE_PUBLICATION: ${{ needs.prepare.outputs.release }}
-        run: python3 .release-policy/.github/actions/build-tested-binary/binary.py build
+        run: python3 "$POLICY_ROOT/.github/actions/build-tested-binary/binary.py" build
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: binary-${{ matrix.target }}
@@ -197,11 +208,16 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
-      - uses: ./.release-policy/.github/actions/tag-tested-release
-        with:
-          version: ${{ needs.prepare.outputs.version }}
-          revision: ${{ needs.prepare.outputs.revision }}
+      - name: Tag the tested source
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
+        run: python3 "$POLICY_ROOT/.github/actions/tag-tested-release/tag.py"
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           token: ${{ steps.writer.outputs.token }}
@@ -223,18 +239,21 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
           RELEASE_TARGET: x86_64-unknown-linux-gnu
-        run: python3 .release-policy/.github/actions/build-tested-binary/binary.py upload
-      - uses: ./.release-policy/.github/actions/publish-tested-crate
-        with:
-          crate: ${{ inputs.crate-name }}
-          version: ${{ needs.prepare.outputs.version }}
-          revision: ${{ needs.prepare.outputs.revision }}
+        run: python3 "$POLICY_ROOT/.github/actions/build-tested-binary/binary.py" upload
+      - name: Publish only committed package inputs
+        shell: bash
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      - uses: ./.release-policy/.github/actions/test-cargo-package
-        with:
-          published: true
-          revision: ${{ needs.prepare.outputs.revision }}
+          RELEASE_CRATE: ${{ inputs.crate-name }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
+        run: python3 "$POLICY_ROOT/.github/actions/publish-tested-crate/publish.py"
+      - name: Test the actual public crate
+        shell: bash
+        env:
+          PACKAGE_PUBLISHED: 'true'
+          RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
+        run: python3 "$POLICY_ROOT/.github/actions/test-cargo-package/package_test.py"
       - name: Complete verified release
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token }}
@@ -266,6 +285,9 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
       - name: Install and execute the anonymous public download
         env:
@@ -273,4 +295,4 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
           RELEASE_TARGET: ${{ matrix.target }}
-        run: python3 .release-policy/.github/actions/build-tested-binary/binary.py public
+        run: python3 "$POLICY_ROOT/.github/actions/build-tested-binary/binary.py" public

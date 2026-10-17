@@ -21,7 +21,7 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIn('ref: ${{ needs.prepare.outputs.revision }}', workflow)
         self.assertIn('publish-tested-crate', workflow)
         self.assertIn('test-cargo-package', workflow)
-        self.assertIn('published: true', workflow)
+        self.assertIn("PACKAGE_PUBLISHED: 'true'", workflow)
         self.assertNotIn('secrets: inherit', workflow)
 
     def test_archive_validation_rejects_missing_tests_and_licenses(self):
@@ -43,7 +43,7 @@ class InstalledBinaryTests(unittest.TestCase):
     def test_public_download_is_exercised_after_release(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertIn('  installed-binary:\n', workflow)
-        self.assertIn('binary.py public', workflow)
+        self.assertIn('binary.py" public', workflow)
 
     def test_archive_requires_tested_source_and_untampered_binary(self):
         import importlib.util
@@ -72,3 +72,43 @@ class PolicyReferenceTests(unittest.TestCase):
         self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 5)
         self.assertNotIn('inputs.policy-revision', workflow)
         self.assertIn('timeout-minutes:', workflow)
+
+
+class PolicyIsolationTests(unittest.TestCase):
+    def test_policy_checkout_moves_outside_all_cargo_source_patterns(self):
+        import os
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / 'source'
+            policy = workspace / '.release-policy'
+            policy.mkdir(parents=True)
+            (policy / 'README.md').write_text('policy, never crate source')
+            (workspace / 'Cargo.toml').write_text(
+                '[package]\nname="policy-isolation-fixture"\nversion="0.1.0"\n'
+                'edition="2021"\ninclude=["src/**", "README.md", "Cargo.toml"]\n')
+            (workspace / 'src').mkdir()
+            (workspace / 'src/lib.rs').write_text('// fixture\n')
+            command = ['cargo', 'package', '--offline', '--allow-dirty', '--list']
+            before = subprocess.check_output(command, cwd=workspace, text=True, stderr=subprocess.DEVNULL)
+            self.assertIn('.release-policy/README.md', before)
+            runner = root / 'runner'
+            runner.mkdir()
+            output = root / 'environment'
+            env = {**os.environ, 'GITHUB_WORKSPACE': str(workspace),
+                   'RUNNER_TEMP': str(runner), 'GITHUB_ENV': str(output)}
+            subprocess.run(['python3', str(ROOT / '.github/scripts/isolate_policy.py')],
+                           env=env, check=True, capture_output=True)
+            self.assertFalse(policy.exists())
+            after = subprocess.check_output(command, cwd=workspace, text=True, stderr=subprocess.DEVNULL)
+            self.assertNotIn('.release-policy', after)
+            destination = runner / 'release-policy'
+            self.assertEqual((destination / 'README.md').read_text(), 'policy, never crate source')
+            self.assertIn(f'POLICY_ROOT={destination.resolve()}', output.read_text())
+
+    def test_every_policy_checkout_is_isolated_before_use(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 5)
+        self.assertNotIn('uses: ./.release-policy/', workflow)
+        self.assertNotIn('run: python3 .release-policy/.github/actions/', workflow)
