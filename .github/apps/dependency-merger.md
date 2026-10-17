@@ -18,6 +18,14 @@ Store `RELEASE_MERGER_APP_ID` and `RELEASE_MERGER_APP_KEY` as organization secre
 selected for those repositories. Keep the existing release-writer secrets for
 publication only. Never print or commit private keys.
 
+## Pilot scope
+
+The [reviewable pilot plan](dependency-merger-pilot.json) selects only
+`github-actions` and `iri-namespace` for installation and secrets. It contains
+the exact shared-repository rules and the bounded consumer permission change.
+The canary uses temporary non-main branches and does not publish anything.
+Later repositories require the same server-policy prerequisites before rollout.
+
 ## Server policy
 
 Require strict CI checks for current main, signed commits and linear history.

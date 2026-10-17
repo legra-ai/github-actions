@@ -35,6 +35,18 @@ class SelfMaintenanceTests(unittest.TestCase):
         self.assertFalse(manifest['hook_attributes']['active'])
         self.assertEqual(manifest['default_events'], [])
 
+    def test_pilot_scope_cannot_grant_a_ci_bypass_to_the_merger(self):
+        pilot = json.loads((ROOT / '.github/apps/dependency-merger-pilot.json').read_text())
+        self.assertEqual(pilot['organization'], 'legra-ai')
+        self.assertEqual([item['name'] for item in pilot['repositories']], ['github-actions', 'iri-namespace'])
+        self.assertEqual(pilot['secrets'], ['RELEASE_MERGER_APP_ID', 'RELEASE_MERGER_APP_KEY'])
+        self.assertEqual(pilot['shared_policy_rules']['checks']['bypass_actors'], [])
+        self.assertEqual(pilot['shared_policy_rules']['review']['bypass_actors'],
+                         [{'actor_type': 'RepositoryRole', 'actor_id': 5, 'bypass_mode': 'always'},
+                          {'actor_type': 'Integration', 'actor_id': '$MERGE_APP_ID', 'bypass_mode': 'always'}])
+        self.assertEqual(pilot['consumer_change']['add_actor_to'], 'main-review only')
+        self.assertTrue(pilot['consumer_change']['preserve_all_other_rules'])
+
     def test_dependency_updates_and_title_enforcement_are_daily_and_trusted(self):
         config = (ROOT / '.github/dependabot.yml').read_text()
         self.assertIn('interval: daily', config)
