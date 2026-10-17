@@ -64,3 +64,11 @@ class InstalledBinaryTests(unittest.TestCase):
                     archive.writestr('cargo-example', b'changed executable')
                 with self.assertRaises(ValueError):
                     module.validate(path, info, smoke=False)
+
+class PolicyReferenceTests(unittest.TestCase):
+    def test_reusable_workflow_ref_is_the_only_policy_pin(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertNotIn('policy-revision:', workflow)
+        self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 5)
+        self.assertNotIn('inputs.policy-revision', workflow)
+        self.assertIn('timeout-minutes:', workflow)
