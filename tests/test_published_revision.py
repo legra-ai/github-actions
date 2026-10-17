@@ -68,14 +68,31 @@ class PackageInputTests(unittest.TestCase):
         import subprocess
         import tempfile
         root = source.parents[3]
-        real_output = subprocess.check_output
-        def output(args, **kwargs):
-            if args[0] == 'cargo':
-                return 'Cargo.toml.orig\n.cargo_vcs_info.json\nREADME.md\nuntracked.rs\n'
-            return real_output(args, **kwargs)
+        import io
+        from unittest.mock import MagicMock
+        real_popen = subprocess.Popen
+        listing = MagicMock()
+        listing.__enter__.return_value = listing
+        listing.stdout = io.StringIO('Cargo.toml.orig\n.cargo_vcs_info.json\nREADME.md\nuntracked.rs\n')
+        listing.poll.return_value = None
+        listing.wait.return_value = 0
+        def spawn(args, **kwargs):
+            return listing if args[0] == 'cargo' else real_popen(args, **kwargs)
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(['git', 'clone', '--quiet', '--local', str(root), directory], check=True)
             (pathlib.Path(directory) / 'untracked.rs').write_text('fn main() {}\n')
-            with contextlib.chdir(directory), patch.object(publish.subprocess, 'check_output', side_effect=output):
+            with contextlib.chdir(directory), patch.object(publish.subprocess, 'Popen', side_effect=spawn):
                 with self.assertRaisesRegex(ValueError, 'untracked.rs'):
                     publish.assert_clean_package('example')
+
+    def test_package_file_limit_stops_the_producer(self):
+        from unittest.mock import MagicMock
+        listing = MagicMock()
+        listing.__enter__.return_value = listing
+        listing.stdout = ('.cargo_vcs_info.json\n' for _ in range(10000))
+        listing.poll.return_value = None
+        listing.wait.return_value = 0
+        with patch.object(publish.subprocess, 'run'), patch.object(publish.subprocess, 'Popen', return_value=listing):
+            with self.assertRaisesRegex(ValueError, '5,000-file'):
+                publish.assert_clean_package('example')
+        listing.kill.assert_called_once()
