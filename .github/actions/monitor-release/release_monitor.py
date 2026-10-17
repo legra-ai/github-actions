@@ -26,9 +26,12 @@ def validate_config(config):
     if not all(isinstance(name, str) and name for name in registries.values()):
         raise ValueError('Registry package identities must be nonempty strings')
     assets = config['cli_assets']
-    if not isinstance(assets, list) or not 1 <= len(assets) <= 16 or len(set(assets)) != len(assets):
-        raise ValueError('Expected between one and 16 unique CLI asset names')
-    for name in [*assets, config['recovery_asset']]:
+    if not isinstance(assets, list) or len(assets) > 16 or len(set(assets)) != len(assets):
+        raise ValueError('Expected at most 16 unique CLI asset names')
+    recovery = config['recovery_asset']
+    if recovery is None and set(registries) != {'crates'}:
+        raise ValueError('npm and PyPI require an explicit preserved recovery archive')
+    for name in [*assets, *([] if recovery is None else [recovery])]:
         if not re.fullmatch(r'[A-Za-z0-9_.-]+', name) or name in ('.', '..'):
             raise ValueError('Expected an artifact filename without directory components')
 

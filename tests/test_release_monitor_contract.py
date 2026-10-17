@@ -39,10 +39,22 @@ class ContractTests(unittest.TestCase):
                  'registries': {'crates': 'example'}, 'cli_assets': ['example.zip'],
                  'recovery_asset': 'release-packages.zip'}
         for changes in [{'registries': {}}, {'registries': {'unknown': 'example'}},
-                        {'cli_assets': []}, {'repository': '../bad'},
+                        {'repository': '../bad'},
                         {'cli_assets': ['../example.zip']}]:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 monitor.validate_config({**valid, **changes})
+
+    def test_crate_only_configuration_needs_no_binary_or_recovery_archive(self):
+        monitor.validate_config({
+            'repository': 'legra-ai/tasktree', 'workflow': 'ci.yml', 'assignee': 'jgeluk',
+            'registries': {'crates': 'tasktree'}, 'cli_assets': [], 'recovery_asset': None})
+
+    def test_language_bindings_require_preserved_archive_identity(self):
+        for registries in [{'npm': '@example/node'}, {'pypi': 'example'}]:
+            with self.subTest(registries=registries), self.assertRaises(ValueError):
+                monitor.validate_config({
+                    'repository': 'owner/example', 'workflow': 'ci.yml', 'assignee': 'jgeluk',
+                    'registries': registries, 'cli_assets': [], 'recovery_asset': None})
 
 
 if __name__ == '__main__':
