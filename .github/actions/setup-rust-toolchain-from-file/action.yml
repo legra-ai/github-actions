@@ -1,0 +1,78 @@
+name: Setup Rust toolchain from file
+description: >-
+  Read the channel from rust-toolchain.toml and install that exact toolchain,
+  optionally adding the Swatinem shared rust-cache. Collapses the ~30 lines of
+  boilerplate each Rust CI job otherwise repeats (sed-parse the channel, call
+  setup-rust-toolchain, call rust-cache) into a single composite action.
+
+inputs:
+  path:
+    description: >-
+      Path (relative to the checkout root) of the rust-toolchain file to read.
+      Defaults to rust-toolchain.toml at the repository root.
+    required: false
+    default: rust-toolchain.toml
+  components:
+    description: >-
+      Comma-separated list of rustup components to install alongside the
+      toolchain. Forwarded verbatim to actions-rust-lang/setup-rust-toolchain.
+      Leave empty to install only the toolchain.
+    required: false
+    default: ""
+  cache:
+    description: >-
+      Whether to invoke Swatinem/rust-cache after toolchain setup.
+      `true` (default) enables the cache; `false` skips it for jobs that do not
+      build (for example, lint-only or formatting jobs).
+    required: false
+    default: "true"
+  cache-shared-key:
+    description: >-
+      Shared cache key passed to Swatinem/rust-cache as `shared-key`.
+      Multiple jobs in the same workflow should set the same value so they
+      share a target/ cache. Ignored when `cache` is `false`.
+    required: false
+    default: ""
+
+outputs:
+  toolchain:
+    description: >-
+      The toolchain channel resolved from the rust-toolchain file.
+      Example: `nightly-2025-08-29`.
+    value: ${{ steps.resolve.outputs.toolchain }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Rust toolchain channel
+      id: resolve
+      shell: bash
+      run: |
+        set -e
+        file='${{ inputs.path }}'
+        if [ ! -f "$file" ]; then
+          echo "::error file=$file::rust-toolchain file not found"
+          exit 1
+        fi
+        # `rust-toolchain.toml` always has exactly one `channel = "..."` line
+        # under `[toolchain]`. We tolerate but defensively ignore additional
+        # matches by taking only the first via `head -n 1`.
+        channel="$(sed -n 's/^channel = "\([^"]*\)"/\1/p' "$file" | head -n 1)"
+        if [ -z "$channel" ]; then
+          echo "::error file=$file::no `channel = \"...\"` line found in $file" >&2
+          exit 1
+        fi
+        echo "toolchain=$channel" >> "$GITHUB_OUTPUT"
+        echo "Resolved Rust toolchain channel: $channel"
+
+    - name: Set up Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: ${{ steps.resolve.outputs.toolchain }}
+        components: ${{ inputs.components }}
+
+    - name: Cache Rust artifacts
+      if: ${{ inputs.cache == 'true' }}
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ inputs.cache-shared-key }}
