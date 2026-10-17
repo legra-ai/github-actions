@@ -46,6 +46,16 @@ class SourceTests(unittest.TestCase):
             'cli_assets': ['example-target.zip'],
         })
 
+    def test_crate_only_checks_source_identity_without_demanding_binary_assets(self):
+        self.checker.config.update(registries={'crates': 'example'},
+                                   cli_assets=[], recovery_asset=None)
+        with patch.object(self.checker, 'check_crates') as crate, \
+                patch.object(self.checker, 'recovery_manifest') as recovery:
+            self.checker.check_registries('1.2.3', {'draft': False, 'assets': []})
+        crate.assert_called_once_with('example', '1.2.3', None)
+        recovery.assert_not_called()
+        self.checker.check_cli('1.2.3', None)
+
     def test_absent_npm_version_is_not_a_healthy_release(self):
         self.api.metadata['https://registry.npmjs.org/%40example%2Fnode/1.2.3'] = None
         with self.assertRaisesRegex(ValueError, 'missing'):

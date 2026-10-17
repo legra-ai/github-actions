@@ -44,7 +44,8 @@ class Sources:
         return manifest
 
     def check_registries(self, version, release):
-        manifest = self.recovery_manifest(version, release)
+        manifest = (self.recovery_manifest(version, release)
+                    if self.config['recovery_asset'] is not None else None)
         failures = []
         for kind, name in self.config['registries'].items():
             try:
@@ -97,6 +98,8 @@ class Sources:
                     raise ValueError(f'PyPI wheel download differs from release archive: {filename}')
 
     def check_cli(self, version, release):
+        if not self.config['cli_assets']:
+            return
         if release is None or release['draft']:
             raise NotPublished(f'CLI v{version} downloads are not public')
         for name in self.config['cli_assets']:
