@@ -14,7 +14,6 @@ def assert_clean_package(crate):
     """Generated staging files may exist, but every package input must be committed."""
     subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], check=True)
     # bounded: one distributable package, capped at 5,000 source paths.
-    tracked = set(subprocess.check_output(['git', 'ls-files', '-z'], text=True).split('\0'))
     files = subprocess.check_output(
         ['cargo', 'package', '--locked', '--allow-dirty', '--list', '--package', crate],
         text=True).splitlines()
@@ -22,9 +21,14 @@ def assert_clean_package(crate):
         raise ValueError('Package source exceeds the 5,000-file validation limit')
     # Cargo generates these from its own metadata and the committed manifest.
     generated = {'.cargo_vcs_info.json', 'Cargo.toml.orig'}
-    unknown = set(files) - tracked - generated
-    if unknown:
-        raise ValueError(f'Package contains uncommitted source inputs: {sorted(unknown)}')
+    for name in files:
+        if name in generated:
+            continue
+        result = subprocess.run(
+            ['git', '--literal-pathspecs', 'ls-files', '--error-unmatch', '--', name],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            raise ValueError(f'Package contains an uncommitted source input: {name}: {result.stderr}')
 
 
 def main():
