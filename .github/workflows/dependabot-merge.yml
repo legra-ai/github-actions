@@ -11,13 +11,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        id: writer
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
-          private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
+          ref: ${{ job.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        id: merger
+        with:
+          app-id: ${{ secrets.RELEASE_MERGER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_MERGER_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-      - uses: legra-ai/github-actions/.github/actions/merge-tested-dependabot@0d3fcdea7b2eef4a9bb4208f30ae9fa7a2ba2a6d
+      - uses: ./.github/actions/merge-tested-dependabot
         with:
-          token: ${{ steps.writer.outputs.token }}
+          token: ${{ steps.merger.outputs.token }}
+          app-id: ${{ secrets.RELEASE_MERGER_APP_ID }}

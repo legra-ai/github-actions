@@ -1,0 +1,16 @@
+{
+  "name": "legra-dependency-merger",
+  "url": "https://github.com/legra-ai/github-actions",
+  "public": false,
+  "hook_attributes": {
+    "url": "https://github.com/legra-ai/github-actions",
+    "active": false
+  },
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "administration": "read",
+    "workflows": "write"
+  },
+  "default_events": []
+}

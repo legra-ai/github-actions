@@ -3,15 +3,19 @@ description: Merge the exact Dependabot head validated by a completed CI run
 inputs:
   token:
     required: true
-    description: Authorized writer token (the release-writer GitHub App, minted per run); its merge starts the main pipeline
+    description: Dedicated merge App token; this identity must obey strict CI checks
+  app-id:
+    required: true
+    description: Expected numeric identity of the dedicated merge App
 runs:
   using: composite
   steps:
     - uses: actions/github-script@v8
       env:
+        MERGE_APP_ID: ${{ inputs.app-id }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       with:
         github-token: ${{ inputs.token }}
         script: |
           const merge = require(`${process.env.RELEASE_ACTION_PATH}/merge.cjs`);
-          await merge(github, context);
+          await merge(github, context, Number(process.env.MERGE_APP_ID));

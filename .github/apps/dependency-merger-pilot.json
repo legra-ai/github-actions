@@ -1,0 +1,131 @@
+{
+  "organization": "legra-ai",
+  "repositories": [
+    {
+      "name": "github-actions",
+      "id": 1130333284
+    },
+    {
+      "name": "iri-namespace",
+      "id": 1335233761
+    }
+  ],
+  "secrets": [
+    "RELEASE_MERGER_APP_ID",
+    "RELEASE_MERGER_APP_KEY"
+  ],
+  "shared_policy_rules": {
+    "checks": {
+      "target": "branch",
+      "enforcement": "active",
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "refs/heads/main"
+          ],
+          "exclude": []
+        }
+      },
+      "name": "main-checks",
+      "bypass_actors": [],
+      "rules": [
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": true,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "test",
+                "integration_id": 15368
+              },
+              {
+                "context": "workflow-identity",
+                "integration_id": 15368
+              },
+              {
+                "context": "package-isolation (ubuntu-24.04)",
+                "integration_id": 15368
+              },
+              {
+                "context": "package-isolation (macos-15)",
+                "integration_id": 15368
+              },
+              {
+                "context": "package-isolation (windows-latest)",
+                "integration_id": 15368
+              },
+              {
+                "context": "Conventional Commit",
+                "integration_id": 15368
+              }
+            ]
+          }
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "deletion"
+        }
+      ]
+    },
+    "review": {
+      "target": "branch",
+      "enforcement": "active",
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "refs/heads/main"
+          ],
+          "exclude": []
+        }
+      },
+      "name": "main-review",
+      "bypass_actors": [
+        {
+          "actor_type": "RepositoryRole",
+          "actor_id": 5,
+          "bypass_mode": "always"
+        },
+        {
+          "actor_type": "Integration",
+          "actor_id": "$MERGE_APP_ID",
+          "bypass_mode": "always"
+        }
+      ],
+      "rules": [
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 1,
+            "dismiss_stale_reviews_on_push": true,
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": true,
+            "allowed_merge_methods": [
+              "squash"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "consumer_change": {
+    "repository": "iri-namespace",
+    "review_ruleset_id": 25313730,
+    "add_actor_to": "main-review only",
+    "preserve_all_other_rules": true
+  },
+  "canary": {
+    "repository": "github-actions",
+    "branch_prefix": "merger-canary-",
+    "publication": false,
+    "validate": [
+      "current tested head can merge",
+      "stale green head is rejected after base advances",
+      "merge signature is GitHub verified"
+    ],
+    "cleanup": "close remaining canary PRs and remove only their temporary rules and branches"
+  }
+}

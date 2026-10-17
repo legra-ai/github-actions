@@ -42,3 +42,4 @@ jobs:
           toolchain: 1.89.0
       - run: python3 -m unittest discover -s tests -p test_cargo_maintenance.py
       - run: python3 -m unittest discover -s tests -p test_package_features.py
+      - run: python3 -m unittest discover -s tests -p test_commit_hook.py
