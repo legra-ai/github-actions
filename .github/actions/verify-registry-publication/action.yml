@@ -1,0 +1,34 @@
+name: Verify registry publication
+description: Require public archive identity before completing a release
+inputs:
+  registry:
+    required: true
+    description: crates, npm, or pypi
+  package:
+    required: true
+    description: Exact registry package identity
+  version:
+    required: true
+    description: Validated stable version
+  revision:
+    required: true
+    description: Complete tested source revision
+  archive:
+    required: false
+    description: Preserved release ZIP containing manifest.json; required for npm and PyPI
+  timeout:
+    default: '300'
+    description: Visibility polling budget in seconds, at most 600
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VERIFY_REGISTRY: ${{ inputs.registry }}
+        VERIFY_PACKAGE: ${{ inputs.package }}
+        VERIFY_VERSION: ${{ inputs.version }}
+        VERIFY_REVISION: ${{ inputs.revision }}
+        VERIFY_ARCHIVE: ${{ inputs.archive }}
+        VERIFY_TIMEOUT: ${{ inputs.timeout }}
+        VERIFY_ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$VERIFY_ACTION_PATH/verification.py"
