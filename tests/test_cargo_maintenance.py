@@ -110,5 +110,6 @@ class PolicyIsolationTests(unittest.TestCase):
     def test_every_policy_checkout_is_isolated_before_use(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 5)
+        self.assertIn('defaults:\n  run:\n    shell: bash', workflow)
         self.assertNotIn('uses: ./.release-policy/', workflow)
         self.assertNotIn('run: python3 .release-policy/.github/actions/', workflow)
