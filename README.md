@@ -76,3 +76,8 @@ run from extracted archives on all three systems, then from the public registry
 before the GitHub draft is made public. Required-check policy and independent
 release-health monitoring must also be configured; this workflow alone does not
 certify a repository's maintenance policy.
+
+Cargo maintenance stages the immutable policy checkout in `RUNNER_TEMP` before
+any source validation or packaging. Cargo include rules can select ignored and
+nested README files, so policy and build source must occupy separate trees.
+The publisher independently rejects every uncommitted package input.

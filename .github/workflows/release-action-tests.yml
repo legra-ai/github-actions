@@ -25,3 +25,13 @@ jobs:
           if os.environ['JOB_WORKFLOW_SHA'] != os.environ['EXPECTED_REVISION']:
               raise ValueError('Native workflow identity differs from the executed revision')
           PY
+  package-isolation:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: python3 -m unittest discover -s tests -p test_cargo_maintenance.py
