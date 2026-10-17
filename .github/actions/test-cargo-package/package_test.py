@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import re
 import tarfile
 import tempfile
 import tomllib
@@ -17,7 +18,16 @@ def validate_files(files):
         raise ValueError('Crate archive must ship both declared license files')
 
 
+def package_environment(root):
+    """An extracted archive must not select the runner's unrelated default Rust."""
+    toolchain = tomllib.loads((root / 'rust-toolchain.toml').read_text())['toolchain']['channel']
+    if not re.fullmatch(r'(?:[0-9]+\.[0-9]+\.[0-9]+|nightly-[0-9]{4}-[0-9]{2}-[0-9]{2})', toolchain):
+        raise ValueError('Package tests require an exact compiler pin')
+    return {**os.environ, 'RUSTUP_TOOLCHAIN': toolchain}
+
+
 def main():
+    package_env = package_environment(Path.cwd())
     package = tomllib.loads(Path('Cargo.toml').read_text())['package']
     name, version = package['name'], package['version']
     stem = f'{name}-{version}'
@@ -34,7 +44,7 @@ def main():
             archive_path.write_bytes(data)
         else:
             subprocess.run(['cargo', 'package', '--locked', '--allow-dirty', '--no-verify',
-                            '--target-dir', str(root)], check=True)
+                            '--target-dir', str(root)], env=package_env, check=True)
             archive_path = root / 'package' / f'{stem}.crate'
         with tarfile.open(archive_path) as archive:
             files = {member.name.removeprefix(stem + '/') for member in archive.getmembers()}
@@ -49,7 +59,7 @@ def main():
                     raise ValueError('Published crate differs from tested source revision')
             archive.extractall(root / 'unpacked', filter='data')
         unpacked = root / 'unpacked' / stem
-        env = {**os.environ, 'CARGO_TARGET_DIR': str(root / 'test-build')}
+        env = {**package_env, 'CARGO_TARGET_DIR': str(root / 'test-build')}
         for selection in ['--all-targets', '--doc']:
             # A binary-only package has no doctest target.
             if selection == '--doc':
