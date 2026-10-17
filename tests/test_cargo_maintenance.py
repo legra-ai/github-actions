@@ -38,3 +38,29 @@ class MaintenanceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class InstalledBinaryTests(unittest.TestCase):
+    def test_public_download_is_exercised_after_release(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertIn('  installed-binary:\n', workflow)
+        self.assertIn('binary.py public', workflow)
+
+    def test_archive_requires_tested_source_and_untampered_binary(self):
+        import importlib.util
+        import json
+        import tempfile
+        import zipfile
+        spec = importlib.util.spec_from_file_location('binary_test', ROOT / '.github/actions/build-tested-binary/binary.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        info = {'crate': 'cargo-example', 'version': '1.2.3', 'revision': 'a' * 40,
+                'target': 'x86_64-unknown-linux-gnu'}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'binary.zip'
+            for metadata in [{**info, 'revision': 'b' * 40, 'sha256': '0' * 64},
+                             {**info, 'sha256': '0' * 64}]:
+                with zipfile.ZipFile(path, 'w') as archive:
+                    archive.writestr('release.json', json.dumps(metadata))
+                    archive.writestr('cargo-example', b'changed executable')
+                with self.assertRaises(ValueError):
+                    module.validate(path, info, smoke=False)
