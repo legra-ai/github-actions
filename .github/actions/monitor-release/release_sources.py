@@ -91,8 +91,10 @@ class Sources:
             raise ValueError('Recovery archive contains no Python wheels')
         for filename, expected in wheels.items():
             matches = [item for item in files if item['filename'] == filename]
+            if not matches:
+                raise NotPublished(f'Missing PyPI wheel: {filename}')
             if len(matches) != 1 or matches[0]['digests']['sha256'] != expected:
-                raise ValueError(f'Missing or mismatched PyPI wheel: {filename}')
+                raise ValueError(f'Duplicate or mismatched PyPI wheel: {filename}')
             with self.api.download(matches[0]['url']) as (_, digest):
                 if digest != expected:
                     raise ValueError(f'PyPI wheel download differs from release archive: {filename}')
