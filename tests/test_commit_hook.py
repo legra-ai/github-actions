@@ -9,6 +9,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CommitHookTests(unittest.TestCase):
+    def test_windows_checkout_cannot_rewrite_the_shell_hook_to_crlf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source'
+            output = Path(directory) / 'checkout'
+            source.mkdir()
+            output.mkdir()
+            (source / '.githooks').mkdir()
+            (source / '.githooks/commit-msg').write_bytes((ROOT / '.githooks/commit-msg').read_bytes())
+            paths = ['.githooks/commit-msg']
+            if (ROOT / '.gitattributes').exists():
+                (source / '.gitattributes').write_bytes((ROOT / '.gitattributes').read_bytes())
+                paths.append('.gitattributes')
+            subprocess.run(['git', 'init', '--quiet', str(source)], check=True)
+            subprocess.run(['git', 'add', *paths], cwd=source, check=True)
+            null = 'NUL' if os.name == 'nt' else '/dev/null'
+            subprocess.run(['git', '-c', 'core.attributesFile=' + null, '-c', 'core.autocrlf=true',
+                            'checkout-index', '--all', '--force', '--prefix=' + output.as_posix() + '/'],
+                           cwd=source, check=True)
+            self.assertNotIn(b'\r\n', (output / '.githooks/commit-msg').read_bytes())
+
     def test_scoped_breaking_headers_and_invalid_first_lines(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
