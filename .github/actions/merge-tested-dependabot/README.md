@@ -7,7 +7,8 @@ administration/read. It must have no other write permissions. Pass its numeric
 
 The merger revalidates the current title and exact tested head. It verifies
 that current main is an ancestor and rechecks main before the merge request.
-Stale heads fail and require a signed rebase followed by fresh CI. API failures
+Stale heads request Dependabot own signed rebase and fail the current merge
+attempt. Only a new head with complete fresh CI can merge. API failures
 are hard errors; the action never merges or updates a branch to hide them.
 
 A client ancestry check alone cannot prevent main advancing before GitHub

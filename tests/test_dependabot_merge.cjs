@@ -4,6 +4,8 @@ const merge = require('../.github/actions/merge-tested-dependabot/merge.cjs');
 
 function fixture() {
   const calls = [];
+  const rebases = [];
+  const comments = [];
   const run = {event: 'pull_request', conclusion: 'success', head_sha: 'tested', head_branch: 'dependabot/cargo/serde', head_repository: {full_name: 'org/crate'}};
   const pr = {number: 1, title: 'build(deps): update serde', body: 'Dependency update.', user: {login: 'dependabot[bot]'}, head: {sha: 'tested', repo: {full_name: 'org/crate'}}, base: {ref: 'main'}};
   const comparison = {status: 'ahead', merge_base_commit: {sha: 'current-base'}};
@@ -15,15 +17,17 @@ function fixture() {
     parameters: {strict_required_status_checks_policy: true, required_status_checks: [{context: 'test'}]}}];
   const github = {
     graphql: async () => ({viewer}),
+    paginate: {iterator: async function* () {yield {data: comments};}},
     request: async route => ({data: route.endsWith('/{ruleset_id}') ? policy : rules}),
     rest: {
     apps: {getBySlug: async () => ({data: app})},
+    issues: {listComments: async () => ({}), createComment: async args => {rebases.push(args); return {data: {id: 1}};}},
     repos: {getBranch: async () => ({data: {commit: {sha: 'current-base'}}}),
       compareCommitsWithBasehead: async () => ({data: comparison})},
     pulls: {list: async () => ({data: [pr]}), merge: async args => {calls.push(args); return {data: {merged: true}};}},
     actions: {createWorkflowDispatch: async args => calls.push(args)},
   }};
-  return {calls, run, pr, github, comparison, appId, viewer, app, policy, rules, context: {repo: {owner: 'org', repo: 'crate'}, payload: {workflow_run: run}}};
+  return {calls, rebases, comments, run, pr, github, comparison, appId, viewer, app, policy, rules, context: {repo: {owner: 'org', repo: 'crate'}, payload: {workflow_run: run}}};
 }
 
 test('successful CI merges only its tested head; the writer merge itself starts main CI', async () => {
@@ -134,5 +138,54 @@ test('GitHub refusing a base race is propagated without retry or dispatch', asyn
   const f = fixture();
   f.github.rest.pulls.merge = async () => {throw new Error('405: branch is behind main');};
   await assert.rejects(merge(f.github, f.context, f.appId), /405/);
+  assert.deepEqual(f.calls, []);
+});
+
+test('stale CI requests Dependabot own signed rebase and still fails this merge attempt', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  await assert.rejects(merge(f.github, f.context, f.appId), /rebase.*retest/i);
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.rebases.length, 1);
+  assert.equal(f.rebases[0].issue_number, 1);
+  assert.match(f.rebases[0].body, /^@dependabot rebase\n/);
+  assert.match(f.rebases[0].body, /legra-rebase:tested:current-base/);
+});
+
+test('rerunning the same stale head does not repeat the authenticated rebase request', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  f.comments.push({user: {login: f.viewer.login}, body: '<!-- legra-rebase:tested:current-base -->'});
+  await assert.rejects(merge(f.github, f.context, f.appId), /rebase.*retest/i);
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.rebases, []);
+});
+
+test('a forged rebase marker cannot suppress the trusted request', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  f.comments.push({user: {login: 'someone'}, body: '<!-- legra-rebase:tested:current-base -->'});
+  await assert.rejects(merge(f.github, f.context, f.appId));
+  assert.equal(f.rebases.length, 1);
+  assert.deepEqual(f.calls, []);
+});
+
+test('comment pages are streamed before requesting another rebase', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  f.github.paginate.iterator = async function* () {
+    yield {data: [{user: {login: 'someone'}, body: 'unrelated'}]};
+    yield {data: [{user: {login: f.viewer.login}, body: '<!-- legra-rebase:tested:current-base -->'}]};
+  };
+  await assert.rejects(merge(f.github, f.context, f.appId));
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.rebases, []);
+});
+
+test('failure to request a signed rebase cannot authorize the stale head', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  f.github.rest.issues.createComment = async () => {throw new Error('Rebase comment denied');};
+  await assert.rejects(merge(f.github, f.context, f.appId), /Rebase comment denied/);
   assert.deepEqual(f.calls, []);
 });
