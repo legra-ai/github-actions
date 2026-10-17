@@ -1,19 +1,19 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "22:00"
-      timezone: "UTC"
+      interval: daily
+      time: "04:00"
+      timezone: UTC
     groups:
-      all-dependencies:
-        patterns:
-          - "*"
+      compatible-updates:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        patterns: ["*"]
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
     commit-message:
-      prefix: "ci"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "github-actions"
+      prefix: "ci(deps)"
+    labels: [dependencies, github-actions]
