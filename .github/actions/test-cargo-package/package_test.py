@@ -60,14 +60,15 @@ def main():
             archive.extractall(root / 'unpacked', filter='data')
         unpacked = root / 'unpacked' / stem
         env = {**package_env, 'CARGO_TARGET_DIR': str(root / 'test-build')}
-        for selection in ['--all-targets', '--doc']:
+        for selection in [['--all-targets'], ['--all-targets', '--all-features'],
+                          ['--doc'], ['--doc', '--all-features']]:
             # A binary-only package has no doctest target.
-            if selection == '--doc':
+            if '--doc' in selection:
                 metadata = json.loads(subprocess.check_output(
                     ['cargo', 'metadata', '--no-deps', '--format-version', '1'], cwd=unpacked, env=env))
                 if not any('lib' in target['kind'] for pkg in metadata['packages'] for target in pkg['targets']):
                     continue
-            subprocess.run(['cargo', 'test', '--locked', selection, '--', '--test-threads=1'],
+            subprocess.run(['cargo', 'test', '--locked', *selection, '--', '--test-threads=1'],
                            cwd=unpacked, env=env, check=True)
         print(f'Validated {stem} archive sha256:{hashlib.file_digest(archive_path.open("rb"), "sha256").hexdigest()}')
 
