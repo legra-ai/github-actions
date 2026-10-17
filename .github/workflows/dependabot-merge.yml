@@ -1,0 +1,23 @@
+name: Merge tested dependencies
+on:
+  workflow_run:
+    workflows: [Release action tests]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  merge:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        id: writer
+        with:
+          app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+      - uses: legra-ai/github-actions/.github/actions/merge-tested-dependabot@4981df8426b6a8e9e8e4de2398ca6aa5a596b7c7
+        with:
+          token: ${{ steps.writer.outputs.token }}
