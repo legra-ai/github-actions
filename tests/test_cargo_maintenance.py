@@ -113,3 +113,24 @@ class PolicyIsolationTests(unittest.TestCase):
         self.assertIn('defaults:\n  run:\n    shell: bash', workflow)
         self.assertNotIn('uses: ./.release-policy/', workflow)
         self.assertNotIn('run: python3 .release-policy/.github/actions/', workflow)
+
+
+class PackageToolchainTests(unittest.TestCase):
+    def test_extracted_archive_keeps_the_declared_compiler_outside_checkout(self):
+        import importlib.util
+        import os
+        import tempfile
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location('package_toolchain',
+            ROOT / '.github/actions/test-cargo-package/package_test.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / 'rust-toolchain.toml'
+            manifest.write_text('[toolchain]\nchannel="1.94.1"\n')
+            with patch.dict(os.environ, {'RUSTUP_TOOLCHAIN': 'nightly'}):
+                self.assertEqual(module.package_environment(root)['RUSTUP_TOOLCHAIN'], '1.94.1')
+            manifest.write_text('[toolchain]\nchannel="nightly"\n')
+            with self.assertRaises(ValueError):
+                module.package_environment(root)
