@@ -10,7 +10,7 @@ class MaintenanceTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('required: true\n', workflow.split('    secrets:')[1])
         self.assertIn("if: github.ref == 'refs/heads/main'", workflow)
-        self.assertIn('actions/create-github-app-token@v3', workflow)
+        self.assertRegex(workflow, r'actions/create-github-app-token@[0-9a-f]{40} # v3')
         self.assertIn('cancel-in-progress: false', workflow)
 
     def test_publication_waits_for_tests_and_all_binary_builds(self):

@@ -34,10 +34,10 @@ jobs:
       version: ${{ steps.manifest.outputs.version }}
       release: ${{ steps.prepare.outputs.release }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
           ref: ${{ inputs.policy-revision }}
@@ -59,7 +59,7 @@ jobs:
           if tomllib.loads(Path('Cargo.toml').read_text())['package']['name'] != os.environ['RELEASE_CRATE']:
               raise ValueError('Maintenance package differs from manifest')
           PY
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         if: github.ref == 'refs/heads/main'
         id: writer
         with:
@@ -67,7 +67,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-      - uses: taiki-e/install-action@v2.87.26
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
         with:
           tool: cargo-version-info@0.0.21
       - id: prepare
@@ -96,10 +96,10 @@ jobs:
     env:
       RUST_TEST_THREADS: '1'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.revision }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
           ref: ${{ inputs.policy-revision }}
@@ -110,11 +110,11 @@ jobs:
         run: |
           IFS= read -r toolchain < rustfmt-toolchain || exit 1
           printf 'toolchain=%s\n' "$toolchain" >> "$GITHUB_OUTPUT" || exit 1
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: ${{ steps.formatter.outputs.toolchain }}
           components: rustfmt
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
         with:
           components: clippy
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -145,16 +145,16 @@ jobs:
             target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.revision }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
           ref: ${{ inputs.policy-revision }}
           path: .release-policy
           persist-credentials: false
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
         with:
           target: ${{ matrix.target }}
       - name: Build or recover the tested binary archive
@@ -166,7 +166,7 @@ jobs:
           RELEASE_TARGET: ${{ matrix.target }}
           RELEASE_PUBLICATION: ${{ needs.prepare.outputs.release }}
         run: python3 .release-policy/.github/actions/build-tested-binary/binary.py build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: binary-${{ matrix.target }}
           path: binary-artifacts/*.zip
@@ -179,37 +179,37 @@ jobs:
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         id: writer
         with:
           app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
           private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.revision }}
           fetch-depth: 0
           token: ${{ steps.writer.outputs.token }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
           ref: ${{ inputs.policy-revision }}
           path: .release-policy
           persist-credentials: false
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
       - uses: ./.release-policy/.github/actions/tag-tested-release
         with:
           version: ${{ needs.prepare.outputs.version }}
           revision: ${{ needs.prepare.outputs.revision }}
-      - uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           token: ${{ steps.writer.outputs.token }}
           tag_name: v${{ needs.prepare.outputs.version }}
           target_commitish: ${{ needs.prepare.outputs.revision }}
           draft: true
           generate_release_notes: true
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         if: inputs.kind == 'binary'
         with:
           pattern: binary-*
@@ -256,16 +256,16 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.prepare.outputs.revision }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
           ref: ${{ inputs.policy-revision }}
           path: .release-policy
           persist-credentials: false
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
       - name: Install and execute the anonymous public download
         env:
           RELEASE_CRATE: ${{ inputs.crate-name }}
