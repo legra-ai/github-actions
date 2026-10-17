@@ -32,7 +32,8 @@ class ContractTests(unittest.TestCase):
         self.assertIn('issues: write', workflow)
         self.assertNotIn('pull_request:', workflow)
         self.assertNotIn('secrets.RELEASE_WRITER', workflow)
-        self.assertIn('release_monitor.py monitor .github/release-health.json', workflow)
+        self.assertIn('release-health.json', workflow)
+        self.assertIn('release_monitor.py monitor', workflow)
 
     def test_configuration_rejects_unsupported_registry_and_missing_channels(self):
         valid = {'repository': 'owner/example', 'workflow': 'ci.yml', 'assignee': 'jgeluk',
@@ -59,3 +60,21 @@ class ContractTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CargoFleetTests(unittest.TestCase):
+    def test_tooling_releases_are_monitored_in_a_separate_bounded_slice(self):
+        configs = monitor.load_config(ROOT / '.github/release-health-cargo.json')
+        names = {config['registries']['crates'] for config in configs}
+        self.assertEqual(names, {'cargo-plugin-utils', 'cargo-version-info', 'cargo-fmt-toml',
+                               'cargo-nightly', 'cargo-propagate-features', 'rhusky', 'release-version'})
+        existing = monitor.load_config(ROOT / '.github/release-health.json')
+        self.assertTrue({c['repository'] for c in existing}.isdisjoint(c['repository'] for c in configs))
+        for config in configs:
+            expected = 6 if config['registries']['crates'] in names - {'cargo-plugin-utils', 'rhusky', 'release-version'} else 0
+            self.assertEqual(len(config['cli_assets']), expected)
+            self.assertEqual(config['assignee'], 'jgeluk')
+        workflow = (ROOT / '.github/workflows/release-health.yml').read_text()
+        self.assertIn('.github/release-health-cargo.json', workflow)
+        self.assertIn('fail-fast: false', workflow)
+        self.assertIn('MONITOR_CONFIG: ${{ matrix.config }}', workflow)

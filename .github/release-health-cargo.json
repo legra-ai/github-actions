@@ -1,0 +1,102 @@
+{
+  "repositories": [
+    {
+      "repository": "legra-ai/cargo-plugin-utils",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "cargo-plugin-utils"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/rhusky",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "rhusky"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/release-version",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "release-version"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/cargo-version-info",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "cargo-version-info"
+      },
+      "cli_assets": [
+        "cargo-version-info-aarch64-apple-darwin.zip",
+        "cargo-version-info-x86_64-apple-darwin.zip",
+        "cargo-version-info-aarch64-unknown-linux-gnu.zip",
+        "cargo-version-info-x86_64-unknown-linux-gnu.zip",
+        "cargo-version-info-aarch64-pc-windows-msvc.zip",
+        "cargo-version-info-x86_64-pc-windows-msvc.zip"
+      ],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/cargo-fmt-toml",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "cargo-fmt-toml"
+      },
+      "cli_assets": [
+        "cargo-fmt-toml-aarch64-apple-darwin.zip",
+        "cargo-fmt-toml-x86_64-apple-darwin.zip",
+        "cargo-fmt-toml-aarch64-unknown-linux-gnu.zip",
+        "cargo-fmt-toml-x86_64-unknown-linux-gnu.zip",
+        "cargo-fmt-toml-aarch64-pc-windows-msvc.zip",
+        "cargo-fmt-toml-x86_64-pc-windows-msvc.zip"
+      ],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/cargo-nightly",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "cargo-nightly"
+      },
+      "cli_assets": [
+        "cargo-nightly-aarch64-apple-darwin.zip",
+        "cargo-nightly-x86_64-apple-darwin.zip",
+        "cargo-nightly-aarch64-unknown-linux-gnu.zip",
+        "cargo-nightly-x86_64-unknown-linux-gnu.zip",
+        "cargo-nightly-aarch64-pc-windows-msvc.zip",
+        "cargo-nightly-x86_64-pc-windows-msvc.zip"
+      ],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/cargo-propagate-features",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "cargo-propagate-features"
+      },
+      "cli_assets": [
+        "cargo-propagate-features-aarch64-apple-darwin.zip",
+        "cargo-propagate-features-x86_64-apple-darwin.zip",
+        "cargo-propagate-features-aarch64-unknown-linux-gnu.zip",
+        "cargo-propagate-features-x86_64-unknown-linux-gnu.zip",
+        "cargo-propagate-features-aarch64-pc-windows-msvc.zip",
+        "cargo-propagate-features-x86_64-pc-windows-msvc.zip"
+      ],
+      "recovery_asset": null
+    }
+  ]
+}

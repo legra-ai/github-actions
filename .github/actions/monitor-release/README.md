@@ -3,9 +3,10 @@
 Runs independently of the monitored repository's publisher. The central
 `release-health.yml` workflow checks the explicit fleet slice in
 `.github/release-health.json` hourly and after monitoring changes land.
-The enrolled fleet currently includes dotenvage and 18 single-package Rust
-repositories with shared release planning, daily dependency updates, and the
-release-writer App merger. Enrollment is monitoring coverage, not release-policy
+The scheduler runs separate bounded slices: dotenvage and 18 Rust repositories
+in `.github/release-health.json`, and seven Cargo tooling repositories in
+`.github/release-health-cargo.json`. All six advertised archives are checked
+for each of the four Cargo executables. Each job retains the 20-repository cap. Enrollment is monitoring coverage, not release-policy
 certification; detected failures remain visible until verified recovery.
 
 A healthy result requires an active release workflow, a scheduled run within

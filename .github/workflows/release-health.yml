@@ -7,7 +7,7 @@ on:
     branches: [main]
     paths:
       - .github/actions/monitor-release/**
-      - .github/release-health.json
+      - .github/release-health*.json
       - .github/workflows/release-health.yml
 permissions:
   contents: read
@@ -16,6 +16,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   monitor:
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [.github/release-health.json, .github/release-health-cargo.json]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -26,4 +30,5 @@ jobs:
       - name: Inspect public publication and reconcile alerts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .github/actions/monitor-release/release_monitor.py monitor .github/release-health.json
+          MONITOR_CONFIG: ${{ matrix.config }}
+        run: python3 .github/actions/monitor-release/release_monitor.py monitor "$MONITOR_CONFIG"
