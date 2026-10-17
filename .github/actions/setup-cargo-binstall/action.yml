@@ -7,22 +7,38 @@ runs:
     - name: Resolve latest cargo-binstall version
       id: version
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         # cargo-binstall is installed from GitHub Releases (not crates.io),
         # so resolve "latest" via the GitHub API and use the concrete tag in
         # the cache key. Otherwise the literal string "latest" pins runners
         # to whichever binary first populated the cache, masking new
         # releases for the cache lifetime.
-        RESOLVED=$(curl -sfL -A "legra-ai-github-actions" \
-          -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/latest" \
-          | jq -r '.tag_name // empty')
-        if [ -z "$RESOLVED" ]; then
-          echo "⚠️  Could not resolve latest cargo-binstall tag; cache will be coarse"
-          RESOLVED="latest"
+        if [ -z "${GH_TOKEN:-}" ]; then
+          printf 'GitHub token is required to resolve cargo-binstall\n' >&2
+          exit 1
         fi
-        echo "version=${RESOLVED}" >> "$GITHUB_OUTPUT"
-        echo "cargo-binstall version: ${RESOLVED}"
+        if RELEASE_JSON=$(curl --fail-with-body --silent --show-error --location \
+          -A "legra-ai-github-actions" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/latest"); then
+          if RESOLVED=$(printf '%s' "$RELEASE_JSON" | jq -er '.tag_name'); then
+            if [[ ! "$RESOLVED" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              printf 'Invalid cargo-binstall release tag: %s\n' "$RESOLVED" >&2
+              exit 1
+            fi
+          else
+            printf 'GitHub release response has no cargo-binstall tag\n' >&2
+            exit 1
+          fi
+        else
+          printf 'Failed to resolve cargo-binstall from GitHub: %s\n' "$RELEASE_JSON" >&2
+          exit 1
+        fi
+        printf 'version=%s\n' "$RESOLVED" >> "$GITHUB_OUTPUT" || exit 1
+        printf 'cargo-binstall version: %s\n' "$RESOLVED" || exit 1
 
     - name: Cache cargo-binstall binary
       uses: actions/cache@v6
