@@ -88,7 +88,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Run tests
         shell: bash
         env:
@@ -174,7 +174,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
 
       # Treats "already exists on crates.io" as success so the job is
       # safely re-runnable. See dotenvage commit 0e30aa3 for context.
@@ -231,7 +231,7 @@ jobs:
         with:
           ref: refs/tags/v${{ needs.version-check.outputs.new_version }}
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           target: ${{ matrix.platform.target }}
           cache: false  # Swatinem/rust-cache below for custom config
@@ -243,7 +243,7 @@ jobs:
 
       - name: Free disk space (Ubuntu)
         if: matrix.platform.os == 'ubuntu-24.04' || matrix.platform.os == 'ubuntu-24.04-arm'
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@v2.0.0
         with:
           large-packages: false
           docker-images: false
