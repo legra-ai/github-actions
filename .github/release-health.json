@@ -18,6 +18,186 @@
         "dotenvage-x86_64-pc-windows-msvc.zip"
       ],
       "recovery_asset": "release-packages.zip"
+    },
+    {
+      "repository": "legra-ai/async-fs-io",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "async-fs-io"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/axum-serde-boundary",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "axum-serde-boundary"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/byte-lru-cache",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "byte-lru-cache"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/daemon-detect",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "daemon-detect"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/graphml",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "graphml"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/http-content-negotiation",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "http-content-negotiation"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/lpg-ast",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "lpg-ast"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/memory-budget",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "memory-budget"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/neo4j-csv",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "neo4j-csv"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/pg-jsonl",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "pg-jsonl"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/property-graph-model",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "property-graph-model"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/rdf-structural-model",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "rdf-structural-model"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/reqwest-embedded-roots",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "reqwest-embedded-roots"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/serde-stream-formats",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "serde-stream-formats"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/shacl-structural-model",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "shacl-structural-model"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/sort-governor",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "sort-governor"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/sparql-results",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "sparql-results"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
+      "repository": "legra-ai/tasktree",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "tasktree"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
     }
   ]
 }

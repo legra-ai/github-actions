@@ -3,7 +3,10 @@
 Runs independently of the monitored repository's publisher. The central
 `release-health.yml` workflow checks the explicit fleet slice in
 `.github/release-health.json` hourly and after monitoring changes land.
-Dotenvage is the initial adopter.
+The enrolled fleet currently includes dotenvage and 18 single-package Rust
+repositories with shared release planning, daily dependency updates, and the
+release-writer App merger. Enrollment is monitoring coverage, not release-policy
+certification; detected failures remain visible until verified recovery.
 
 A healthy result requires an active release workflow, a scheduled run within
 36 hours, no failed/latest stalled main run, no releasable main changes older
@@ -11,6 +14,12 @@ than two hours, and the intended manifest version in every declared registry.
 Crates must identify the release tag's source revision. npm tarballs and all
 Python platform wheels must match the preserved recovery archive. Every CLI
 archive is downloaded and checked against its GitHub SHA-256 digest.
+
+Crate-only repositories explicitly declare `registries: {"crates": "package"}`,
+`cli_assets: []`, and `recovery_asset: null`. Their downloaded crate must still
+identify the release tag's source revision. A crate-only declaration does not
+certify any CLI binary advertised separately. npm and PyPI configurations must
+declare a preserved recovery archive; metadata-only verification is rejected.
 
 The two-hour publication window applies only to packages that are still
 absent. Authentication, registry service, identity and download failures fail
