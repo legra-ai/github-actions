@@ -1,6 +1,6 @@
 // Called only by a trusted workflow_run handler; never checks out PR code.
 const validateTitle = require('../conventional-commit/validate.cjs');
-module.exports = async function mergeTestedDependabot(github, context) {
+module.exports = async function mergeTestedDependabot(github, context, appId) {
   const run = context.payload.workflow_run;
   const {owner, repo} = context.repo;
   const repository = `${owner}/${repo}`;
@@ -14,6 +14,22 @@ module.exports = async function mergeTestedDependabot(github, context) {
     if (pr.user.login !== 'dependabot[bot]' || pr.base.ref !== 'main' ||
         pr.head.repo?.full_name !== repository || pr.head.sha !== run.head_sha) continue;
     const title = validateTitle(pr.title);
+    await requireStrictMergeIdentity(github, owner, repo, appId);
+    const {data: base} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+    const baseSha = base.commit.sha;
+    const {data: comparison} = await github.rest.repos.compareCommitsWithBasehead({
+      owner, repo, basehead: `${baseSha}...${run.head_sha}`, per_page: 1,
+    });
+    if (comparison.status !== 'ahead' || comparison.merge_base_commit?.sha !== baseSha) {
+      throw new Error(`PR ${pr.number} does not include current main; rebase and retest`);
+    }
+    const {data: latest} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+    if (latest.commit.sha !== baseSha) {
+      throw new Error(`main advanced for PR ${pr.number}; rebase and retest`);
+    }
+    // The identity cannot bypass strict checks. GitHub therefore rejects a
+    // base advance after this check atomically when processing the merge.
+
     const {data: result} = await github.rest.pulls.merge({
       owner, repo, pull_number: pr.number, sha: run.head_sha, merge_method: 'squash',
       commit_title: `${title} (#${pr.number})`, commit_message: pr.body || '',
@@ -23,3 +39,34 @@ module.exports = async function mergeTestedDependabot(github, context) {
     // pipeline on main by itself; no explicit dispatch is needed.
   }
 };
+
+async function requireStrictMergeIdentity(github, owner, repo, appId) {
+  if (!Number.isSafeInteger(appId) || appId <= 0) {
+    throw new Error('A dedicated merge App ID is required');
+  }
+  const {viewer} = await github.graphql('query { viewer { login } }');
+  if (!viewer.login.endsWith('[bot]')) throw new Error('Merge token must belong to a GitHub App');
+  const {data: app} = await github.rest.apps.getBySlug({app_slug: viewer.login.slice(0, -5)});
+  if (app.id !== appId) throw new Error('Merge token identity does not match the configured App ID');
+  const writes = Object.entries(app.permissions).filter(([, level]) => level === 'write');
+  if (writes.some(([permission]) => !['contents', 'pull_requests'].includes(permission)) ||
+      app.permissions.administration !== 'read') {
+    throw new Error('Merge App requires administration read and only contents/pull_requests write');
+  }
+  const {data: rules} = await github.request('GET /repos/{owner}/{repo}/rules/branches/{branch}', {
+    owner, repo, branch: 'main', per_page: 100,
+  });
+  // bounded: one API page contains at most 100 effective branch rules.
+  for (const rule of rules) {
+    if (rule.type !== 'required_status_checks' ||
+        !rule.parameters.strict_required_status_checks_policy ||
+        !rule.parameters.required_status_checks.length) continue;
+    const {data: policy} = await github.request('GET /repos/{owner}/{repo}/rulesets/{ruleset_id}', {
+      owner, repo, ruleset_id: rule.ruleset_id,
+    });
+    if (!Array.isArray(policy.bypass_actors)) throw new Error('Cannot verify ruleset bypass policy');
+    if (policy.bypass_actors.every(actor =>
+      actor.actor_type === 'Integration' && actor.actor_id !== appId)) return;
+  }
+  throw new Error('Merge App bypasses strict checks or main lacks a strict checks ruleset');
+}
