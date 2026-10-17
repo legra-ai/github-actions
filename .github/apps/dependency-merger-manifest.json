@@ -9,7 +9,8 @@
   "default_permissions": {
     "contents": "write",
     "pull_requests": "write",
-    "administration": "read"
+    "administration": "read",
+    "workflows": "write"
   },
   "default_events": []
 }

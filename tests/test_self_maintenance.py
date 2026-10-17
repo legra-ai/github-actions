@@ -30,7 +30,7 @@ class SelfMaintenanceTests(unittest.TestCase):
     def test_merge_manifest_has_only_the_reviewed_repository_permissions(self):
         manifest = json.loads((ROOT / '.github/apps/dependency-merger-manifest.json').read_text())
         self.assertEqual(manifest['default_permissions'],
-                         {'contents': 'write', 'pull_requests': 'write', 'administration': 'read'})
+                         {'contents': 'write', 'pull_requests': 'write', 'administration': 'read', 'workflows': 'write'})
         self.assertFalse(manifest['public'])
         self.assertFalse(manifest['hook_attributes']['active'])
         self.assertEqual(manifest['default_events'], [])

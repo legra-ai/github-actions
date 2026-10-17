@@ -9,7 +9,8 @@ SHA. The dedicated merger has no CI bypass, so GitHub enforces that final check.
 
 Register the private org-owned App described by
 [the manifest](dependency-merger-manifest.json). It requests only repository
-contents/write, pull_requests/write and administration/read. Webhooks are
+contents/write, pull_requests/write, workflows/write and administration/read.
+Workflow write is needed for CI dependency updates. Webhooks are
 inactive. It has no Actions, checks, statuses, administration-write or org-wide
 permissions. Install only on the repositories included in the approved rollout.
 

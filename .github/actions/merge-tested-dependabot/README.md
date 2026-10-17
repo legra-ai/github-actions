@@ -1,8 +1,8 @@
 # Merge tested Dependabot update
 
 Use in a trusted `workflow_run` handler for complete CI. Never check out PR
-code. The dedicated merge App needs contents/write, pull_requests/write and
-administration/read. It must have no other write permissions. Pass its numeric
+code. The dedicated merge App needs contents/write, pull_requests/write, workflows/write and
+administration/read. The workflow permission permits CI dependency updates. It must have no other write permissions. Pass its numeric
 `app-id` as well as its installation `token`.
 
 The merger revalidates the current title and exact tested head. It verifies

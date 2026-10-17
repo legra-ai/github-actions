@@ -51,9 +51,9 @@ async function requireStrictMergeIdentity(github, owner, repo, appId) {
   const {data: app} = await github.rest.apps.getBySlug({app_slug: viewer.login.slice(0, -5)});
   if (app.id !== appId) throw new Error('Merge token identity does not match the configured App ID');
   const writes = Object.entries(app.permissions).filter(([, level]) => level === 'write');
-  if (writes.some(([permission]) => !['contents', 'pull_requests'].includes(permission)) ||
+  if (writes.some(([permission]) => !['contents', 'pull_requests', 'workflows'].includes(permission)) ||
       app.permissions.administration !== 'read') {
-    throw new Error('Merge App requires administration read and only contents/pull_requests write');
+    throw new Error('Merge App requires administration read and only contents/pull_requests/workflows write');
   }
   const {data: rules} = await github.request('GET /repos/{owner}/{repo}/rules/branches/{branch}', {
     owner, repo, branch: 'main', per_page: 100,

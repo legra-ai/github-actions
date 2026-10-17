@@ -189,3 +189,10 @@ test('failure to request a signed rebase cannot authorize the stale head', async
   await assert.rejects(merge(f.github, f.context, f.appId), /Rebase comment denied/);
   assert.deepEqual(f.calls, []);
 });
+
+test('workflow dependency updates remain supported by the merge identity', async () => {
+  const f = fixture();
+  f.app.permissions.workflows = 'write';
+  await merge(f.github, f.context, f.appId);
+  assert.equal(f.calls.length, 1);
+});
