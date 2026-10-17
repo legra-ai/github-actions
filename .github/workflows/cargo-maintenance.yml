@@ -10,10 +10,6 @@ on:
         description: library or binary
         default: library
         type: string
-      policy-revision:
-        description: Exact shared-actions commit used by the caller
-        required: true
-        type: string
     secrets:
       CRATES_IO_TOKEN:
         required: false
@@ -29,6 +25,7 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     outputs:
       revision: ${{ steps.prepare.outputs.revision }}
       version: ${{ steps.manifest.outputs.version }}
@@ -40,12 +37,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
-          ref: ${{ inputs.policy-revision }}
+          ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - name: Validate maintenance inputs
         env:
-          POLICY_REVISION: ${{ inputs.policy-revision }}
+          POLICY_REVISION: ${{ job.workflow_sha }}
           CRATE_KIND: ${{ inputs.kind }}
           RELEASE_CRATE: ${{ inputs.crate-name }}
         run: |
@@ -93,6 +90,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       RUST_TEST_THREADS: '1'
     steps:
@@ -102,7 +100,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
-          ref: ${{ inputs.policy-revision }}
+          ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - id: formatter
@@ -144,6 +142,7 @@ jobs:
           - os: windows-latest
             target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -151,7 +150,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
-          ref: ${{ inputs.policy-revision }}
+          ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
@@ -178,6 +177,7 @@ jobs:
       always() && needs.prepare.outputs.release == 'true' && needs.test.result == 'success' &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         id: writer
@@ -194,7 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
-          ref: ${{ inputs.policy-revision }}
+          ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
@@ -255,6 +255,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -262,7 +263,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: legra-ai/github-actions
-          ref: ${{ inputs.policy-revision }}
+          ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2

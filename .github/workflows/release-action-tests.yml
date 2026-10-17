@@ -11,3 +11,17 @@ jobs:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s tests
       - run: node --test tests/test_dependabot_merge.cjs
+  workflow-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify GitHub exposes the immutable defining workflow revision
+        env:
+          JOB_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          if os.environ['JOB_WORKFLOW_SHA'] != os.environ['EXPECTED_REVISION']:
+              raise ValueError('Native workflow identity differs from the executed revision')
+          PY
