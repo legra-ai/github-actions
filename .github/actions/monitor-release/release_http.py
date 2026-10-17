@@ -10,6 +10,10 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
+class DownloadNotFound(RuntimeError):
+    """A requested public archive is absent at its advertised URL."""
+
+
 class API:
     def __init__(self, token):
         self.token = token
@@ -61,6 +65,8 @@ class API:
                 source = urlopen(request, timeout=30)
             except HTTPError as error:
                 error.close()
+                if error.code == 404:
+                    raise DownloadNotFound(f'HTTP 404: {url}') from None
                 raise RuntimeError(f'HTTP {error.code}: {url}') from None
             with source, path.open('wb') as destination:
                 while chunk := source.read(64 * 1024):

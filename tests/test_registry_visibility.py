@@ -1,12 +1,15 @@
 """Publication cannot complete before public archives have verified identity."""
 
+import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from urllib.error import HTTPError
 import zipfile
 
 ROOT = Path(__file__).parents[1]
@@ -49,6 +52,44 @@ class VisibilityTests(unittest.TestCase):
         api.json.return_value['urls'] = [{'filename': 'example.whl', 'digests': {'sha256': 'c' * 64}}]
         with self.assertRaisesRegex(ValueError, 'mismatched'):
             verifier.check()
+
+    def test_indexed_npm_package_waits_for_the_actual_archive(self):
+        api = verification.API('')
+        payload = b'preserved npm tarball'
+        url = 'https://registry.npmjs.org/example/-/example-1.2.3.tgz'
+        manifest = {'files': {'example.tgz': hashlib.sha256(payload).hexdigest()}}
+        verifier = verification.Verifier(api, 'npm', 'example', '1.2.3', 'a' * 40, manifest)
+        sleep = Mock()
+        with patch.object(api, 'json', return_value={'version': '1.2.3', 'dist': {'tarball': url}}), \
+                patch('release_http.urlopen', side_effect=[
+                    HTTPError(url, 404, 'not visible yet', {}, io.BytesIO()), io.BytesIO(payload)]) as download:
+            verification.await_publication(verifier.check, 10, clock=Mock(return_value=0), sleep=sleep)
+        self.assertEqual(download.call_count, 2)
+        sleep.assert_called_once_with(5)
+
+    def test_archive_absence_exhausts_the_same_visibility_deadline(self):
+        api = verification.API('')
+        url = 'https://registry.npmjs.org/example/-/example-1.2.3.tgz'
+        verifier = verification.Verifier(api, 'npm', 'example', '1.2.3', 'a' * 40,
+                                         {'files': {'example.tgz': 'b' * 64}})
+        with patch.object(api, 'json', return_value={'version': '1.2.3', 'dist': {'tarball': url}}), \
+                patch('release_http.urlopen', side_effect=HTTPError(url, 404, 'absent', {}, io.BytesIO())), \
+                self.assertRaisesRegex(TimeoutError, '404'):
+            verification.await_publication(verifier.check, 10, clock=Mock(side_effect=[0, 10]), sleep=Mock())
+
+    def test_archive_authentication_and_service_failures_are_not_retried(self):
+        for code in [401, 403, 429, 500]:
+            api = verification.API('')
+            url = 'https://registry.npmjs.org/example/-/example-1.2.3.tgz'
+            verifier = verification.Verifier(api, 'npm', 'example', '1.2.3', 'a' * 40,
+                                             {'files': {'example.tgz': 'b' * 64}})
+            sleep = Mock()
+            with self.subTest(code=code), \
+                    patch.object(api, 'json', return_value={'version': '1.2.3', 'dist': {'tarball': url}}), \
+                    patch('release_http.urlopen', side_effect=HTTPError(url, code, 'failed', {}, io.BytesIO())), \
+                    self.assertRaisesRegex(RuntimeError, str(code)):
+                verification.await_publication(verifier.check, 10, sleep=sleep)
+            sleep.assert_not_called()
 
     def test_bundle_is_bound_to_validated_source_before_network_access(self):
         with tempfile.TemporaryDirectory() as folder:

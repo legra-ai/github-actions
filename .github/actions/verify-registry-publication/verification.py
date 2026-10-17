@@ -9,7 +9,7 @@ import time
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'monitor-release'))
-from release_http import API
+from release_http import API, DownloadNotFound
 from release_sources import NotPublished, Sources
 
 
@@ -73,7 +73,11 @@ class Verifier(Sources):
         return self.revision
 
     def check(self):
-        getattr(self, f'check_{self.registry}')(self.package, self.version, self.manifest)
+        try:
+            getattr(self, f'check_{self.registry}')(self.package, self.version, self.manifest)
+        except DownloadNotFound as error:
+            # Registry metadata can become visible before the immutable archive.
+            raise NotPublished(str(error)) from error
 
 
 def main():
