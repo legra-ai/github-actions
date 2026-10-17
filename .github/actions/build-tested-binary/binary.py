@@ -31,13 +31,29 @@ def digest(path):
 
 
 def release(info):
-    result = subprocess.run(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/v{info["version"]}'],
-                            capture_output=True, text=True)
-    if result.returncode == 0:
-        return json.loads(result.stdout)
-    if 'HTTP 404' in result.stderr:
+    # The REST tag endpoint excludes drafts. Resolve the named release through
+    # GraphQL, then fetch its full asset metadata through the REST release ID.
+    owner, name = os.environ['GITHUB_REPOSITORY'].split('/', 1)
+    query = ('query($owner:String!,$name:String!,$tag:String!){'
+             'repository(owner:$owner,name:$name){release(tagName:$tag){databaseId}}}')
+    result = subprocess.run(['gh', 'api', 'graphql', '-f', 'query=' + query,
+                             '-f', 'owner=' + owner, '-f', 'name=' + name,
+                             '-f', 'tag=v' + info['version']], capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError(result.stderr)
+    payload = json.loads(result.stdout)
+    if payload.get('errors') or payload['data']['repository'] is None:
+        raise RuntimeError('Release lookup did not resolve the authorized repository')
+    found = payload['data']['repository']['release']
+    if found is None:
         return None
-    raise RuntimeError(result.stderr)
+    release_id = found['databaseId']
+    if type(release_id) is not int or release_id <= 0:
+        raise ValueError('Release lookup returned an invalid database ID')
+    metadata = json.loads(gh('api', f'repos/{owner}/{name}/releases/{release_id}'))
+    if metadata.get('tag_name') != 'v' + info['version']:
+        raise ValueError('Resolved release differs from the requested tag')
+    return metadata
 
 
 def archive_name(info):

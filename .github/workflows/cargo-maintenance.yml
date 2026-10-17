@@ -127,6 +127,11 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: sh scripts/fmt.sh --check
       - run: cargo test --locked --all-targets
+      - run: cargo test --locked --all-targets --all-features
+      - if: inputs.kind == 'library'
+        run: cargo test --locked --doc
+      - if: inputs.kind == 'library'
+        run: cargo test --locked --doc --all-features
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo doc --locked --no-deps --all-features
       - name: Test the distributable source archive
