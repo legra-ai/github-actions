@@ -92,7 +92,7 @@ class PolicyIsolationTests(unittest.TestCase):
             (workspace / 'src/lib.rs').write_text('// fixture\n')
             command = ['cargo', 'package', '--offline', '--allow-dirty', '--list']
             before = subprocess.check_output(command, cwd=workspace, text=True, stderr=subprocess.DEVNULL)
-            self.assertIn('.release-policy/README.md', before)
+            self.assertIn('.release-policy/README.md', before.replace(chr(92), '/'))
             runner = root / 'runner'
             runner.mkdir()
             output = root / 'environment'
@@ -105,7 +105,7 @@ class PolicyIsolationTests(unittest.TestCase):
             self.assertNotIn('.release-policy', after)
             destination = runner / 'release-policy'
             self.assertEqual((destination / 'README.md').read_text(), 'policy, never crate source')
-            self.assertIn(f'POLICY_ROOT={destination.resolve()}', output.read_text())
+            self.assertIn(f'POLICY_ROOT={destination.resolve().as_posix()}', output.read_text())
 
     def test_every_policy_checkout_is_isolated_before_use(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
