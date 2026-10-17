@@ -53,3 +53,25 @@ Reference actions using the path syntax:
 Creative Commons Attribution-ShareAlike 4.0 International
 
 See [LICENSE](LICENSE) for details.
+
+### Tested Cargo maintenance
+
+Use `.github/workflows/cargo-maintenance.yml` for a single public Cargo package.
+Pin both the reusable workflow reference and its `policy-revision` input to the
+same reviewed 40-character shared-actions commit. Set `crate-name` and `kind`
+(`library` or `binary`), and inherit the organization release secrets. PR jobs
+require no secrets. Only main mints the repository-scoped release writer.
+
+Callers provide `rust-toolchain.toml`, `rustfmt-toolchain`, `scripts/fmt.sh`, a
+tracked lockfile, and integration tests included in the crate alongside both
+license files. Daily scheduled recovery and the shared trusted title / tested
+Dependabot merge workflows belong in the caller. Remove old version/tag/manual
+publishers when adopting this workflow.
+
+All jobs check out the prepared source revision. Binary packages build six
+platform archives before tagging/publishing, preserve original draft assets on
+recovery, and execute public downloads on Linux, macOS and Windows. Package tests
+run from extracted archives on all three systems, then from the public registry
+before the GitHub draft is made public. Required-check policy and independent
+release-health monitoring must also be configured; this workflow alone does not
+certify a repository's maintenance policy.

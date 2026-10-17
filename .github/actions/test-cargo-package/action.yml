@@ -1,0 +1,18 @@
+name: Test Cargo package archive
+description: Run shipped integration tests outside checkout, optionally from the public registry
+inputs:
+  published:
+    description: Download the public crate instead of packaging the checkout
+    default: 'false'
+  revision:
+    description: Required source identity for public registry validation
+    default: ''
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PACKAGE_TEST_ACTION: ${{ github.action_path }}
+        PACKAGE_PUBLISHED: ${{ inputs.published }}
+        RELEASE_REVISION: ${{ inputs.revision }}
+      run: python3 "$PACKAGE_TEST_ACTION/package_test.py"
