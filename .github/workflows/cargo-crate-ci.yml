@@ -243,7 +243,7 @@ jobs:
 
       - name: Free disk space (Ubuntu)
         if: matrix.platform.os == 'ubuntu-24.04' || matrix.platform.os == 'ubuntu-24.04-arm'
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@v2.0.0
         with:
           large-packages: false
           docker-images: false
