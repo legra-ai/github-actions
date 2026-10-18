@@ -7,6 +7,9 @@ inputs:
   revision:
     required: true
     description: Full SHA that passed all repository checks
+  tag-format:
+    description: Version tag spelling (semver or pep440), matching prepare-cargo-release
+    default: semver
 runs:
   using: composite
   steps:
@@ -14,5 +17,6 @@ runs:
       env:
         RELEASE_VERSION: ${{ inputs.version }}
         RELEASE_REVISION: ${{ inputs.revision }}
+        RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       run: python3 "$RELEASE_ACTION_PATH/tag.py"
