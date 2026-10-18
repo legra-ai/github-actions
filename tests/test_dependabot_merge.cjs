@@ -12,7 +12,7 @@ function fixture() {
   const appId = 123;
   const viewer = {login: 'legra-dependency-merger[bot]'};
   const app = {id: appId, permissions: {contents: 'write', pull_requests: 'write', administration: 'read'}};
-  const policy = {bypass_actors: [{actor_type: 'Integration', actor_id: 456}]};
+  const policy = {enforcement: 'active', current_user_can_bypass: 'never'};
   const rules = [{type: 'required_status_checks', ruleset_id: 99,
     parameters: {strict_required_status_checks_policy: true, required_status_checks: [{context: 'test'}]}}];
   const github = {
@@ -104,22 +104,40 @@ for (const operation of ['getBranch', 'compareCommitsWithBasehead']) {
 }
 
 for (const scenario of ['writer-token', 'user-token', 'admin-write', 'extra-write',
-                         'missing-checks', 'non-strict', 'empty-checks', 'role-bypass', 'hidden-policy']) {
+                         'missing-checks', 'non-strict', 'empty-checks', 'role-bypass', 'hidden-policy', 'unknown-verdict', 'disabled-policy']) {
   test(`${scenario} cannot weaken server enforcement`, async () => {
     const f = fixture();
-    if (scenario === 'writer-token') f.policy.bypass_actors.push({actor_type: 'Integration', actor_id: f.appId});
+    if (scenario === 'writer-token') f.policy.current_user_can_bypass = 'always';
     if (scenario === 'user-token') f.viewer.login = 'operator';
     if (scenario === 'admin-write') f.app.permissions.administration = 'write';
     if (scenario === 'extra-write') f.app.permissions.actions = 'write';
     if (scenario === 'missing-checks') f.rules.length = 0;
     if (scenario === 'non-strict') f.rules[0].parameters.strict_required_status_checks_policy = false;
     if (scenario === 'empty-checks') f.rules[0].parameters.required_status_checks.length = 0;
-    if (scenario === 'role-bypass') f.policy.bypass_actors.push({actor_type: 'RepositoryRole', actor_id: 5});
-    if (scenario === 'hidden-policy') delete f.policy.bypass_actors;
+    if (scenario === 'role-bypass') f.policy.current_user_can_bypass = 'pull_requests_only';
+    if (scenario === 'hidden-policy') delete f.policy.current_user_can_bypass;
+    if (scenario === 'unknown-verdict') f.policy.current_user_can_bypass = 'unknown';
+    if (scenario === 'disabled-policy') f.policy.enforcement = 'disabled';
     await assert.rejects(merge(f.github, f.context, f.appId));
     assert.deepEqual(f.calls, []);
   });
 }
+
+test('a read-only App uses GitHub caller verdict while bypass actors are redacted', async () => {
+  const f = fixture();
+  assert.equal(f.policy.bypass_actors, undefined);
+  assert.equal(f.policy.current_user_can_bypass, 'never');
+  await merge(f.github, f.context, f.appId);
+  assert.equal(f.calls.length, 1);
+});
+
+test('an empty actor list cannot substitute for a missing caller verdict', async () => {
+  const f = fixture();
+  f.policy.bypass_actors = [];
+  delete f.policy.current_user_can_bypass;
+  await assert.rejects(merge(f.github, f.context, f.appId));
+  assert.deepEqual(f.calls, []);
+});
 
 test('a different App cannot impersonate the configured merger', async () => {
   const f = fixture();
