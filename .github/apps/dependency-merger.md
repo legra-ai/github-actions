@@ -29,6 +29,11 @@ Later repositories require the same server-policy prerequisites before rollout.
 ## Server policy
 
 Require strict CI checks for current main, signed commits and linear history.
+The merger requires GitHub’s authenticated `current_user_can_bypass: never`
+verdict for an active strict-check ruleset. GitHub hides `bypass_actors` unless
+the caller can write the ruleset; the merger must never gain that write access
+just to inspect a bypass list. Missing or unknown caller verdicts fail closed.
+
 Grant the new App a bypass of the separate review rule only. Do not add it to
 check-rule bypasses. Preserve required reviews for other actors and preserve
 existing release-writer exceptions needed for signed version preparation.

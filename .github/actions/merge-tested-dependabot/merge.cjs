@@ -66,9 +66,11 @@ async function requireStrictMergeIdentity(github, owner, repo, appId) {
     const {data: policy} = await github.request('GET /repos/{owner}/{repo}/rulesets/{ruleset_id}', {
       owner, repo, ruleset_id: rule.ruleset_id,
     });
-    if (!Array.isArray(policy.bypass_actors)) throw new Error('Cannot verify ruleset bypass policy');
-    if (policy.bypass_actors.every(actor =>
-      actor.actor_type === 'Integration' && actor.actor_id !== appId)) return viewer.login;
+    // GitHub redacts actor lists without ruleset write access. Its caller
+    // verdict includes every bypass principal without granting this App admin.
+    if (policy.enforcement === 'active' && policy.current_user_can_bypass === 'never') {
+      return viewer.login;
+    }
   }
   throw new Error('Merge App bypasses strict checks or main lacks a strict checks ruleset');
 }
