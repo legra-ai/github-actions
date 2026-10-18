@@ -10,9 +10,28 @@ import tomllib
 
 
 def version_tuple(value):
-    if not re.fullmatch(r'\d+\.\d+\.\d+', value):
-        raise ValueError(f'Expected stable semantic version, got {value!r}')
-    return tuple(map(int, value.split('.')))
+    match = re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?', value)
+    if not match:
+        raise ValueError(f'Expected semantic version with optional alpha/beta/rc candidate, got {value!r}')
+    major, minor, patch, channel, candidate = match.groups()
+    return (int(major), int(minor), int(patch),
+            {'alpha': 0, 'beta': 1, 'rc': 2, None: 3}[channel], int(candidate or 0))
+
+
+def tag_version(tag, tag_format):
+    if tag_format not in ('semver', 'pep440'):
+        raise ValueError(f'Unsupported release tag format: {tag_format!r}')
+    pattern = (r'v(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?' if tag_format == 'pep440'
+               else r'v(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?')
+    match = re.fullmatch(pattern, tag)
+    if not match:
+        return None
+    base, channel, candidate = match.groups()
+    if channel:
+        channel = {'a': 'alpha', 'b': 'beta'}.get(channel, channel)
+        base += f'-{channel}.{candidate}'
+    version_tuple(base)
+    return base
 
 
 def next_version(current, latest, messages):
@@ -35,7 +54,12 @@ def next_version(current, latest, messages):
             level = max(level, 2)
         elif not re.match(r'(?:docs|style|ci)\([^\n]+\):|chore\(release\):', header):
             level = max(level, 1)
-    major, minor, patch = current_tuple
+    if '-' in current:
+        if level == 0:
+            return None
+        base, candidate = current.rsplit('.', 1)
+        return f'{base}.{int(candidate) + 1}'
+    major, minor, patch = current_tuple[:3]
     return {0: None, 1: f'{major}.{minor}.{patch + 1}',
             2: f'{major}.{minor + 1}.0', 3: f'{major + 1}.0.0'}[level]
 
@@ -81,17 +105,19 @@ def prepare():
     manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
     package = manifest['workspace']['package'] if 'workspace' in manifest and 'package' in manifest['workspace'] else manifest['package']
     current = package['version']
-    tags = [tag for tag in run('git', 'tag', '--merged', 'HEAD', '--list', 'v*').splitlines()
-            if re.fullmatch(r'v\d+\.\d+\.\d+', tag)]
-    tag = max(tags, key=lambda item: version_tuple(item[1:])) if tags else None
+    tag_format = os.environ.get('RELEASE_TAG_FORMAT', 'semver')
+    tags = {tag: tag_version(tag, tag_format)
+            for tag in run('git', 'tag', '--merged', 'HEAD', '--list', 'v*').splitlines()}
+    tags = {tag: version for tag, version in tags.items() if version is not None}
+    tag = max(tags, key=lambda item: version_tuple(tags[item])) if tags else None
     if tag and release_pending(tag):
         # Finish a partial multi-registry release at its immutable source before
         # advancing the version, even if newer main commits have arrived.
-        output(revision=run('git', 'rev-parse', f'{tag}^{{commit}}'), release='true', version=tag[1:])
+        output(revision=run('git', 'rev-parse', f'{tag}^{{commit}}'), release='true', version=tags[tag])
         return
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
-    version = next_version(current, tag[1:] if tag else None, messages)
+    version = next_version(current, tags[tag] if tag else None, messages)
     if version is None:
         output(revision=source, release='false', version=current)
         return

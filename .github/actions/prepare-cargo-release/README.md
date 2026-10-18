@@ -5,7 +5,7 @@ output to **every** validation, build and publication checkout. Only release whe
 `release` is `true` and all repository checks succeed. Main release workflows must
 use one concurrency group with `cancel-in-progress: false`.
 
-The action compares all commits since the latest reachable stable version tag.
+The action compares all commits since the latest reachable version tag.
 Fixes and dependency changes produce a patch; `feat` a minor;
 `!` or `BREAKING CHANGE` a major. Documentation, style and CI-only changes do not
 release. A higher manifest version is respected. No tag baseline uses the manifest.
@@ -26,3 +26,16 @@ revision without mutation.
 Requires a full git checkout, Python 3.11+, Rust and GitHub CLI.
 No publishing token is used here. Registry publication belongs exclusively to the
 calling pipeline after its validation gate.
+
+Prerelease manifests support numeric `alpha`, `beta`, and `rc` candidates.
+A releasable change advances the candidate number within its intended version;
+even a breaking change does not silently promote an alpha to a stable release.
+Changing the intended version, channel, or promoting to stable is an explicit
+manifest change. Stable manifests retain the usual major/minor/patch policy.
+
+`tag-format: pep440` recognizes existing Python tags such as `v0.2.0a1`
+as Cargo version `0.2.0-alpha.1`; the default `semver` recognizes
+`v0.2.0-alpha.1`. These are alternative repository policies, not aliases:
+the planner uses only the selected spelling and never retags historical releases.
+Outputs always carry the Cargo semantic version; companion hooks must synchronize
+Python's PEP 440 spelling before the verified version commit is recorded.

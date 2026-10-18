@@ -47,6 +47,18 @@ class RecoveryTests(unittest.TestCase):
 
         return patch.object(release.subprocess, 'run', side_effect=run)
 
+    def test_python_alpha_resumes_original_tag_before_newer_main(self):
+        pathlib.Path('Cargo.toml').write_text('[package]\nname="example"\nversion="1.3.0-alpha.2"\n')
+        self.git('add', 'Cargo.toml')
+        self.git('commit', '-m', 'chore(release): prepare 1.3.0-alpha.2')
+        original = self.git('rev-parse', 'HEAD')
+        self.git('-c', 'tag.gpgsign=false', 'tag', 'v1.3.0a2')
+        self.git('commit', '--allow-empty', '-m', 'feat(core): newer feature')
+        result = subprocess.CompletedProcess([], 0, '{"draft": true}', '')
+        with patch.dict(os.environ, RELEASE_TAG_FORMAT='pep440'), self.mock_api(result), patch.object(release, 'output') as output:
+            release.prepare()
+        output.assert_called_once_with(revision=original, release='true', version='1.3.0-alpha.2')
+
     def test_pending_release_is_resumed_before_later_changes(self):
         for message in ['docs(readme): clarify', 'fix(core): repair']:
             with self.subTest(message=message):
