@@ -11,6 +11,26 @@ spec.loader.exec_module(release)
 
 
 class ReleasePlanTests(unittest.TestCase):
+    def test_prerelease_changes_advance_the_candidate_without_promoting_to_stable(self):
+        for message in ['fix(core): repair', 'feat(core): add', 'feat(core)!: replace']:
+            self.assertEqual(release.next_version('0.2.0-alpha.1', '0.2.0-alpha.1', [message]), '0.2.0-alpha.2')
+        self.assertIsNone(release.next_version('0.2.0-alpha.1', '0.2.0-alpha.1', ['docs(core): clarify']))
+
+    def test_prerelease_order_and_explicit_promotion(self):
+        self.assertLess(release.version_tuple('0.2.0-alpha.2'), release.version_tuple('0.2.0-alpha.10'))
+        self.assertLess(release.version_tuple('0.2.0-rc.1'), release.version_tuple('0.2.0'))
+        self.assertEqual(release.next_version('0.2.0', '0.2.0-alpha.9', ['chore(release): promote']), '0.2.0')
+        with self.assertRaises(ValueError):
+            release.next_version('0.2.0-alpha.1', '0.2.0', ['fix(core): repair'])
+
+    def test_pep440_tags_preserve_existing_release_identity(self):
+        self.assertEqual(release.tag_version('v0.2.0a12', 'pep440'), '0.2.0-alpha.12')
+        self.assertEqual(release.tag_version('v0.2.0b2', 'pep440'), '0.2.0-beta.2')
+        self.assertEqual(release.tag_version('v0.2.0rc3', 'pep440'), '0.2.0-rc.3')
+        self.assertIsNone(release.tag_version('v0.2.0-alpha.1', 'pep440'))
+        with self.assertRaises(ValueError):
+            release.tag_version('v0.2.0', 'typo')
+
     def test_dependency_updates_release_a_patch(self):
         self.assertEqual(release.next_version('0.1.1', '0.1.1', ['build(deps): update serde']), '0.1.2')
 
