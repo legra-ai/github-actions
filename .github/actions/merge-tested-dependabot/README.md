@@ -7,8 +7,10 @@ administration/read. The workflow permission permits CI dependency updates. It m
 
 The merger revalidates the current title and exact tested head. It verifies
 that current main is an ancestor and rechecks main before the merge request.
-Stale heads request Dependabot own signed rebase and fail the current merge
-attempt. Only a new head with complete fresh CI can merge. API failures
+Stale heads fail the current merge attempt. Dependabot's automatic rebasing
+owns the signed branch refresh; keep it enabled in the repository configuration.
+The App never issues `@dependabot` commands, which Dependabot rejects from Apps.
+Only a new head with complete fresh CI can merge. API failures
 are hard errors; the action never merges or updates a branch to hide them.
 
 A client ancestry check alone cannot prevent main advancing before GitHub
