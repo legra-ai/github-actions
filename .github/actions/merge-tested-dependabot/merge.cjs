@@ -14,19 +14,17 @@ module.exports = async function mergeTestedDependabot(github, context, appId) {
     if (pr.user.login !== 'dependabot[bot]' || pr.base.ref !== 'main' ||
         pr.head.repo?.full_name !== repository || pr.head.sha !== run.head_sha) continue;
     const title = validateTitle(pr.title);
-    const actor = await requireStrictMergeIdentity(github, owner, repo, appId);
+    await requireStrictMergeIdentity(github, owner, repo, appId);
     const {data: base} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
     const baseSha = base.commit.sha;
     const {data: comparison} = await github.rest.repos.compareCommitsWithBasehead({
       owner, repo, basehead: `${baseSha}...${run.head_sha}`, per_page: 1,
     });
     if (comparison.status !== 'ahead' || comparison.merge_base_commit?.sha !== baseSha) {
-      await requestSignedRebase(github, owner, repo, pr, baseSha, actor);
       throw new Error(`PR ${pr.number} does not include current main; rebase and retest`);
     }
     const {data: latest} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
     if (latest.commit.sha !== baseSha) {
-      await requestSignedRebase(github, owner, repo, pr, latest.commit.sha, actor);
       throw new Error(`main advanced for PR ${pr.number}; rebase and retest`);
     }
     // The identity cannot bypass strict checks. GitHub therefore rejects a
@@ -69,23 +67,9 @@ async function requireStrictMergeIdentity(github, owner, repo, appId) {
     // GitHub redacts actor lists without ruleset write access. Its caller
     // verdict includes every bypass principal without granting this App admin.
     if (policy.enforcement === 'active' && policy.current_user_can_bypass === 'never') {
-      return viewer.login;
+      return;
     }
   }
   throw new Error('Merge App bypasses strict checks or main lacks a strict checks ruleset');
 }
 
-async function requestSignedRebase(github, owner, repo, pr, baseSha, actor) {
-  const marker = `<!-- legra-rebase:${pr.head.sha}:${baseSha} -->`;
-  // bounded: stream at most 100 comments per API page; never hydrate the thread.
-  for await (const page of github.paginate.iterator(github.rest.issues.listComments, {
-    owner, repo, issue_number: pr.number, per_page: 100,
-  })) {
-    if (page.data.some(comment => comment.user?.login === actor && comment.body?.includes(marker))) return;
-  }
-  await github.rest.issues.createComment({
-    owner, repo, issue_number: pr.number,
-    body: `@dependabot rebase\n\nThe tested head does not include current main. ` +
-      `Dependabot must rebase and pass complete CI again before merging.\n\n${marker}`,
-  });
-}
