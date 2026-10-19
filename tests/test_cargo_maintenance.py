@@ -15,6 +15,9 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIn(expected, platforms)
         self.assertIn("RELEASE_TOOL_CONTRACT: '1'", platforms)
         self.assertIn('test_release_write.py', platforms)
+        action = (ROOT / '.github/actions/prepare-cargo-release/action.yml').read_text()
+        self.assertIn(expected, action)
+        self.assertNotIn('@main', action)
 
     def test_pr_validation_does_not_require_publication_secrets(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()

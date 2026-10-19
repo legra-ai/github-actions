@@ -20,7 +20,9 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: legra-ai/github-actions/.github/actions/setup-cargo-version-info@main
+    - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      with:
+        tool: cargo-version-info@1.0.0
     - id: prepare
       shell: bash
       env:
