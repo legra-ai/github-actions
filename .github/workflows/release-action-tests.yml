@@ -44,3 +44,10 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_cargo_maintenance.py
       - run: python3 -m unittest discover -s tests -p test_package_features.py
       - run: python3 -m unittest discover -s tests -p test_commit_hook.py
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-version-info@1.0.0
+      - name: Exercise the public release preparation tool
+        run: python3 -m unittest discover -s tests -p test_release_write.py
+        env:
+          RELEASE_TOOL_CONTRACT: '1'

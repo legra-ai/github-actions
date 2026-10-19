@@ -6,6 +6,16 @@ ROOT = Path(__file__).parents[1]
 
 
 class MaintenanceTests(unittest.TestCase):
+    def test_release_preparation_uses_the_current_contract_tested_public_tool(self):
+        expected = 'tool: cargo-version-info@1.0.0'
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertIn(expected, workflow)
+        validation = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
+        platforms = validation.split('  package-isolation:\n', 1)[1]
+        self.assertIn(expected, platforms)
+        self.assertIn("RELEASE_TOOL_CONTRACT: '1'", platforms)
+        self.assertIn('test_release_write.py', platforms)
+
     def test_pr_validation_does_not_require_publication_secrets(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('required: true\n', workflow.split('    secrets:')[1])

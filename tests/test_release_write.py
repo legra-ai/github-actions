@@ -16,6 +16,40 @@ spec.loader.exec_module(release)
 
 
 class ReleaseWriteTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('RELEASE_TOOL_CONTRACT') == '1',
+                         'Public release tool contract runs in the native platform jobs')
+    def test_public_tool_prepares_manifest_and_lock_without_a_local_commit(self):
+        version = subprocess.check_output(['cargo', 'version-info', '--tool-version'], text=True)
+        self.assertRegex(version, r'\b1\.0\.0\b')
+        pathlib.Path('src').mkdir()
+        pathlib.Path('src/lib.rs').write_text('pub const FIXTURE: bool = true;\n')
+        self.git('add', 'src/lib.rs')
+        self.git('commit', '-m', 'test(fixture): add package source')
+        source = self.git('rev-parse', 'HEAD')
+        real_run = subprocess.run
+        writes = []
+
+        def run(args, **kwargs):
+            if args[:2] == ['gh', 'api']:
+                self.assertEqual(args[2], 'graphql')
+                writes.append(json.loads(kwargs['input'])['variables']['input'])
+                return subprocess.CompletedProcess(args, 0,
+                    '{"data":{"createCommitOnBranch":{"commit":{"oid":"prepared"}}}}', '')
+            return real_run(args, **kwargs)
+
+        with patch.dict(os.environ, CARGO_NET_OFFLINE='true'), \
+                patch.object(release.subprocess, 'run', side_effect=run):
+            revision = release.write_release_commit(source, '1.2.4')
+        self.assertEqual(revision, 'prepared')
+        self.assertEqual(self.git('rev-parse', 'HEAD'), source)
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0]['expectedHeadOid'], source)
+        self.assertEqual(writes[0]['branch']['branchName'], 'main')
+        self.assertEqual({item['path'] for item in writes[0]['fileChanges']['additions']},
+                         {'Cargo.toml', 'Cargo.lock'})
+        for name in ('Cargo.toml', 'Cargo.lock'):
+            self.assertIn('1.2.4', pathlib.Path(name).read_text())
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
