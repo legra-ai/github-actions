@@ -7,6 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SelfMaintenanceTests(unittest.TestCase):
+    def test_pr_checks_have_one_run_and_main_is_validated_after_merge(self):
+        workflow = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
+        self.assertRegex(workflow, r'on:\n  push:\n    branches: \[main\]\n  pull_request:\n')
+
     def test_only_successful_complete_tests_can_authorize_the_app_merger(self):
         workflow = (ROOT / '.github/workflows/dependabot-merge.yml').read_text()
         self.assertIn('workflows: [Release action tests]', workflow)
