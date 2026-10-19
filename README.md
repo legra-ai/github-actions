@@ -81,3 +81,17 @@ Cargo maintenance stages the immutable policy checkout in `RUNNER_TEMP` before
 any source validation or packaging. Cargo include rules can select ignored and
 nested README files, so policy and build source must occupy separate trees.
 The publisher independently rejects every uncommitted package input.
+
+For features that are unsupported on a CI operating system, declare the exact
+feature names in the package manifest:
+
+```toml
+[package.metadata.legra-ci.unsupported-features]
+windows = ["jemalloc", "heap-profiling"]
+```
+
+Checkout and extracted-archive validation use the same declaration. Default
+behavior is tested on every platform, and optional tests, doctests, Clippy and
+documentation enable all supported features. Without a declaration, all features
+remain enabled. Unknown platforms/features, inconsistent feature dependencies,
+unsupported defaults and features excluded from all three CI platforms fail.
