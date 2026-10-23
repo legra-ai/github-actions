@@ -1,4 +1,4 @@
-name: Prepare Cargo release
+name: Prepare tested release
 description: Select the version and signed revision that every validation and publication job must use
 inputs:
   token:
@@ -7,6 +7,9 @@ inputs:
   tag-format:
     description: Version tag spelling (semver or pep440); preserve the repository's existing release identity
     default: semver
+  manifest-kind:
+    description: Explicit release manifest backend (cargo or uv)
+    default: cargo
 outputs:
   revision:
     description: Exact revision to test, build, tag and publish
@@ -21,12 +24,18 @@ runs:
   using: composite
   steps:
     - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      if: inputs.manifest-kind == 'cargo'
       with:
         tool: cargo-version-info@1.0.0
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      if: inputs.manifest-kind == 'uv'
+      with:
+        version: "0.13.1"
     - id: prepare
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
         RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}
+        RELEASE_MANIFEST_KIND: ${{ inputs.manifest-kind }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       run: python3 "$RELEASE_ACTION_PATH/release.py"

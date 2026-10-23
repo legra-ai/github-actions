@@ -1,21 +1,24 @@
 """Tag only the exact validated revision with its manifest version."""
 
 import os
+import pathlib
 import re
+import runpy
 import subprocess
-import tomllib
+
+ReleaseManifest = runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / 'release_manifest.py'))['ReleaseManifest']
 
 
-def tag_release(version, revision, tag_format="semver"):
+def tag_release(version, revision, tag_format="semver", manifest_kind='cargo'):
     if tag_format not in ('semver', 'pep440'):
         raise ValueError(f'Unsupported release tag format: {tag_format!r}')
-    if not re.fullmatch(r'(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:alpha|beta|rc)\.(?:0|[1-9]\d*))?', version) or not re.fullmatch(r'[0-9a-f]{40}', revision):
+    manifest = ReleaseManifest(manifest_kind)
+    policy_version = manifest.policy_version(version)
+    if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('Invalid release version or revision')
-    manifest = tomllib.loads(subprocess.check_output(['git', 'show', f'{revision}:Cargo.toml'], text=True))
-    package = manifest['workspace']['package'] if 'workspace' in manifest and 'package' in manifest['workspace'] else manifest['package']
-    if package['version'] != version:
+    if manifest.version(subprocess.check_output(['git', 'show', f'{revision}:{manifest.path}'], text=True)) != version:
         raise ValueError('Release tag does not match manifest version')
-    spelling = version
+    spelling = policy_version
     if tag_format == 'pep440':
         for channel, marker in [('alpha', 'a'), ('beta', 'b'), ('rc', 'rc')]:
             spelling = spelling.replace(f'-{channel}.', marker)
@@ -34,4 +37,4 @@ def tag_release(version, revision, tag_format="semver"):
 
 
 if __name__ == '__main__':
-    tag_release(os.environ['RELEASE_VERSION'], os.environ['RELEASE_REVISION'], os.environ.get('RELEASE_TAG_FORMAT', 'semver'))
+    tag_release(os.environ['RELEASE_VERSION'], os.environ['RELEASE_REVISION'], os.environ.get('RELEASE_TAG_FORMAT', 'semver'), os.environ.get('RELEASE_MANIFEST_KIND', 'cargo'))
