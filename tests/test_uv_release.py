@@ -4,12 +4,12 @@ import base64
 import importlib.util
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -42,9 +42,14 @@ class UvReleaseTests(unittest.TestCase):
             self.git('config', key, value)
         self.project('0.6.1')
         Path('blocked_backend.py').write_text('raise RuntimeError("Version planning built the project")\n')
-        environment = patch.dict(os.environ, UV_PYTHON=sys.executable,
-                                 GITHUB_REF='refs/heads/main', GITHUB_REPOSITORY='owner/fixture',
-                                 RELEASE_MANIFEST_KIND='uv', RELEASE_TAG_FORMAT='semver')
+        values = dict(os.environ)
+        for name in ('VIRTUAL_ENV', 'UV_PROJECT', 'UV_PROJECT_ENVIRONMENT', 'UV_WORKING_DIR',
+                     'UV_CONFIG_FILE', 'UV_NO_SYNC', 'UV_FROZEN', 'UV_LOCKED'):
+            values.pop(name, None)
+        values.update(UV_PYTHON=sys.executable, GITHUB_REF='refs/heads/main',
+                      GITHUB_REPOSITORY='owner/fixture', RELEASE_MANIFEST_KIND='uv',
+                      RELEASE_TAG_FORMAT='semver')
+        environment = patch.dict(os.environ, values, clear=True)
         environment.start()
         self.addCleanup(environment.stop)
         subprocess.run(['uv', 'lock'], check=True, capture_output=True, text=True)
@@ -77,7 +82,9 @@ class UvReleaseTests(unittest.TestCase):
         self.assertFalse(Path('.venv').exists(), 'uv version must use --no-sync')
         self.assertEqual(tomllib.loads(Path('pyproject.toml').read_text())['project']['version'], '0.6.2')
         after = tomllib.loads(Path('uv.lock').read_text())
-        external = lambda lock: [item for item in lock['package'] if item['name'] != 'release-fixture']
+        def external(lock):
+            return [item for item in lock['package'] if item['name'] != 'release-fixture']
+
         self.assertEqual(external(before), external(after))
         own = next(item for item in after['package'] if item['name'] == 'release-fixture')
         self.assertEqual(own['version'], '0.6.2')

@@ -1,9 +1,9 @@
 """Explicit manifest boundary shared by release preparation and tested tagging."""
 
-from pathlib import Path
 import re
 import subprocess
 import tomllib
+from pathlib import Path
 
 
 class ReleaseManifest:
