@@ -10,6 +10,9 @@ inputs:
   tag-format:
     description: Version tag spelling (semver or pep440), matching prepare-cargo-release
     default: semver
+  manifest-kind:
+    description: Explicit release manifest backend (cargo or uv), matching preparation
+    default: cargo
 runs:
   using: composite
   steps:
@@ -18,5 +21,6 @@ runs:
         RELEASE_VERSION: ${{ inputs.version }}
         RELEASE_REVISION: ${{ inputs.revision }}
         RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}
+        RELEASE_MANIFEST_KIND: ${{ inputs.manifest-kind }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}
       run: python3 "$RELEASE_ACTION_PATH/tag.py"

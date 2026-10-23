@@ -155,7 +155,9 @@ class UvReleaseTests(unittest.TestCase):
                  '[project]\nversion="0.6.1"\ndynamic=["version"]\n',
                  '[project]\nversion=6\n', '[project]\nversion="0.6.1.dev1"\n',
                  '[project]\nversion="0.6.1.post1"\n', '[project]\nversion="1!0.6.1"\n',
-                 '[project]\nversion="0.6.1+local"\n']
+                 '[project]\nversion="0.6.1+local"\n',
+                 '[project]\nversion="0.6.1"\ndynamic=7\n',
+                 '[project]\nversion="0.6.1"\ndynamic="dependencies"\n']
         for content in cases:
             with self.subTest(content=content):
                 Path('pyproject.toml').write_text(content)
@@ -177,6 +179,19 @@ class UvReleaseTests(unittest.TestCase):
             release.prepare()
         output.assert_called_once_with(revision=source, release='true', version='0.6.1a2')
         writer.assert_not_called()
+
+
+class UvActionContractTests(unittest.TestCase):
+    def test_actions_wire_the_same_explicit_backend_without_installing_cargo_for_uv(self):
+        prepare = (ROOT / '.github/actions/prepare-cargo-release/action.yml').read_text()
+        tagging = (ROOT / '.github/actions/tag-tested-release/action.yml').read_text()
+        for action in (prepare, tagging):
+            self.assertIn('manifest-kind:', action)
+            self.assertIn("RELEASE_MANIFEST_KIND: ${{ inputs.manifest-kind }}", action)
+        self.assertIn("if: inputs.manifest-kind == 'cargo'", prepare)
+        self.assertIn("if: inputs.manifest-kind == 'uv'", prepare)
+        self.assertIn('astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884', prepare)
+        self.assertIn('version: "0.13.1"', prepare)
 
 
 if __name__ == '__main__':

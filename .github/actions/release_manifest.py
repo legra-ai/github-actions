@@ -51,7 +51,12 @@ class ReleaseManifest:
             package = workspace.get('package', document.get('package', {}))
         else:
             package = document.get('project', {})
-            if not isinstance(package, dict) or 'version' in package.get('dynamic', []):
+            if not isinstance(package, dict):
+                raise ValueError('Release requires a static project.version')
+            dynamic = package.get('dynamic', [])
+            if not isinstance(dynamic, list) or any(not isinstance(field, str) for field in dynamic):
+                raise ValueError('Project dynamic fields must be an array of strings')
+            if 'version' in dynamic:
                 raise ValueError('Release requires a static project.version')
         if not isinstance(package, dict) or 'version' not in package:
             raise ValueError(f'Release manifest {self.path} has no static version')
