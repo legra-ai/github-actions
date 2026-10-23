@@ -6,7 +6,6 @@ import re
 import runpy
 import subprocess
 
-
 ReleaseManifest = runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / 'release_manifest.py'))['ReleaseManifest']
 
 
