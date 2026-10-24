@@ -47,6 +47,16 @@ class MajorApprovalTests(unittest.TestCase):
                     self.assertRaisesRegex(ValueError, 'explicit approval'):
                 release.complete_plan('a' * 40, current, current, latest)
 
+    def test_stable_major_promotion_needs_its_own_explicit_approval(self):
+        with patch.object(release, 'gh_api', return_value='[]'), \
+                self.assertRaisesRegex(ValueError, 'explicit approval'):
+            release.complete_plan('a' * 40, '2.0.0', '2.0.0', '2.0.0-rc.1')
+
+    def test_minor_prerelease_promotion_does_not_require_major_approval(self):
+        with patch.object(release, 'gh_api') as api, patch.object(release, 'output'):
+            release.complete_plan('a' * 40, '1.3.0', '1.3.0', '1.3.0-rc.1')
+        api.assert_not_called()
+
     def test_read_only_plan_exposes_the_gate_without_writing_or_approving(self):
         with patch.dict(os.environ, RELEASE_PLAN_ONLY='true'), \
                 patch.object(release, 'gh_api') as api, \

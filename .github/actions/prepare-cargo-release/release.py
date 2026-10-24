@@ -114,8 +114,11 @@ def require_major_approval(version):
 
 def complete_plan(source, current, version, latest):
     """Expose a read-only decision or enforce approval before any release mutation."""
-    major = version is not None and version_tuple(version)[0] > (
-        version_tuple(latest)[0] if latest is not None else 0)
+    candidate = version_tuple(version) if version is not None else None
+    baseline = version_tuple(latest) if latest is not None else (0, 0, 0, 3, 0)
+    major = candidate is not None and (
+        candidate[0] > baseline[0]
+        or (candidate[0] > 0 and candidate[1:4] == (0, 0, 3) and baseline[3] < 3))
     if os.environ.get('RELEASE_PLAN_ONLY', 'false') == 'true':
         output(revision=source, release=str(version is not None).lower(),
                version=version or current, major_approval_required=str(major).lower())
