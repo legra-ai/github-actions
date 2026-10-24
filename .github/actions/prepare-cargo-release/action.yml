@@ -4,10 +4,16 @@ inputs:
   token:
     required: true
     description: Authorized writer token (the release-writer GitHub App, minted per run and scoped to this repository); records the version commit on main
+  plan-only:
+    description: Calculate the release decision without writing a version commit or authorizing publication
+    default: 'false'
   tag-format:
     description: Version tag spelling (semver or pep440); preserve the repository's existing release identity
     default: semver
 outputs:
+  major-approval-required:
+    description: Whether the read-only plan needs an explicit major-release environment review
+    value: ${{ steps.prepare.outputs.major_approval_required }}
   revision:
     description: Exact revision to test, build, tag and publish
     value: ${{ steps.prepare.outputs.revision }}
@@ -26,6 +32,8 @@ runs:
     - id: prepare
       shell: bash
       env:
+        RELEASE_APPROVAL_TOKEN: ${{ github.token }}
+        RELEASE_PLAN_ONLY: ${{ inputs.plan-only }}
         GH_TOKEN: ${{ inputs.token }}
         RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}
         RELEASE_ACTION_PATH: ${{ github.action_path }}

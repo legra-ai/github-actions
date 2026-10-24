@@ -84,6 +84,56 @@ def release_pending(tag):
     raise RuntimeError(result.stderr)
 
 
+def require_major_approval(version):
+    """Accept only the owner's explicit review of this version and workflow source."""
+    repository = os.environ['GITHUB_REPOSITORY']
+    run_id = os.environ['GITHUB_RUN_ID']
+    source = os.environ['GITHUB_SHA']
+    if not re.fullmatch(r'[0-9a-f]{40}', source) or not run_id.isdecimal():
+        raise ValueError('Invalid workflow approval identity')
+    comment = f'Approve major release {version} from {source}'
+    review_environment = dict(os.environ, GH_TOKEN=os.environ['RELEASE_APPROVAL_TOKEN'])
+    reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals',
+                               env=review_environment))
+    if any(review['state'] == 'rejected'
+           and any(environment['name'] == 'major-release'
+                   for environment in review['environments'])
+           for review in reviews):
+        raise ValueError('Major release requires explicit approval; this run has a rejected review')
+    for review in reviews:
+        if (review['state'] == 'approved'
+                and review['user']['login'] == 'jgeluk'
+                and review['user']['type'] == 'User'
+                and any(environment['name'] == 'major-release'
+                        for environment in review['environments'])
+                and review['comment'] == comment):
+            return
+    raise ValueError(f'Major release requires explicit approval by jgeluk in the '
+                     f'major-release environment with comment: {comment}')
+
+
+def complete_plan(source, current, version, latest):
+    """Expose a read-only decision or enforce approval before any release mutation."""
+    candidate = version_tuple(version) if version is not None else None
+    baseline = version_tuple(latest) if latest is not None else (0, 0, 0, 3, 0)
+    major = candidate is not None and (
+        candidate[0] > baseline[0]
+        or (candidate[0] > 0 and candidate[1:4] == (0, 0, 3) and baseline[3] < 3))
+    if os.environ.get('RELEASE_PLAN_ONLY', 'false') == 'true':
+        output(revision=source, release=str(version is not None).lower(),
+               version=version or current, major_approval_required=str(major).lower())
+        return
+    if major:
+        require_major_approval(version)
+    if version is None:
+        output(revision=source, release='false', version=current)
+    elif version == current:
+        output(revision=source, release='true', version=version)
+    else:
+        revision = write_release_commit(source, version)
+        output(revision=revision, release='true', version=version)
+
+
 def prepare():
     source = run('git', 'rev-parse', 'HEAD')
     if os.environ['GITHUB_REF'] != 'refs/heads/main':
@@ -113,19 +163,15 @@ def prepare():
     if tag and release_pending(tag):
         # Finish a partial multi-registry release at its immutable source before
         # advancing the version, even if newer main commits have arrived.
-        output(revision=run('git', 'rev-parse', f'{tag}^{{commit}}'), release='true', version=tags[tag])
+        previous = [version for name, version in tags.items() if name != tag]
+        baseline = max(previous, key=version_tuple) if previous else None
+        complete_plan(run('git', 'rev-parse', f'{tag}^{{commit}}'),
+                      tags[tag], tags[tag], baseline)
         return
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tags[tag] if tag else None, messages)
-    if version is None:
-        output(revision=source, release='false', version=current)
-        return
-    if version == current:
-        output(revision=source, release='true', version=version)
-        return
-    revision = write_release_commit(source, version)
-    output(revision=revision, release='true', version=version)
+    complete_plan(source, current, version, tags[tag] if tag else None)
 
 
 def gh_api(*args, **kwargs):
