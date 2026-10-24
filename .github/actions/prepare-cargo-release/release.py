@@ -5,8 +5,11 @@ import json
 import os
 import pathlib
 import re
+import runpy
 import subprocess
-import tomllib
+
+
+ReleaseManifest = runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / 'release_manifest.py'))['ReleaseManifest']
 
 
 def version_tuple(value):
@@ -114,8 +117,11 @@ def require_major_approval(version):
                      f'major-release environment with comment: {comment}')
 
 
-def complete_plan(source, current, version, latest):
+def complete_plan(source, current, version, latest, manifest_kind='cargo'):
     """Expose a read-only decision or enforce approval before any release mutation."""
+    manifest = ReleaseManifest(manifest_kind)
+    target = manifest.manifest_version(version) if version is not None else None
+    current_manifest = manifest.manifest_version(current)
     candidate = version_tuple(version) if version is not None else None
     baseline = version_tuple(latest) if latest is not None else (0, 0, 0, 3, 0)
     major = candidate is not None and (
@@ -123,20 +129,25 @@ def complete_plan(source, current, version, latest):
         or (candidate[0] > 0 and candidate[1:4] == (0, 0, 3) and baseline[3] < 3))
     if os.environ.get('RELEASE_PLAN_ONLY', 'false') == 'true':
         output(revision=source, release=str(version is not None).lower(),
-               version=version or current, major_approval_required=str(major).lower())
+               version=target or current_manifest, major_approval_required=str(major).lower())
         return
     if major:
-        require_major_approval(version)
+        require_major_approval(target)
     if version is None:
-        output(revision=source, release='false', version=current)
+        output(revision=source, release='false', version=current_manifest)
     elif version == current:
-        output(revision=source, release='true', version=version)
+        output(revision=source, release='true', version=target)
     else:
-        revision = write_release_commit(source, version)
-        output(revision=revision, release='true', version=version)
+        if manifest_kind == 'cargo':
+            revision = write_release_commit(source, target)
+        else:
+            revision = write_release_commit(source, target, manifest_kind=manifest_kind)
+        output(revision=revision, release='true', version=target)
 
 
 def prepare():
+    manifest_kind = os.environ.get('RELEASE_MANIFEST_KIND', 'cargo')
+    manifest = ReleaseManifest(manifest_kind)
     source = run('git', 'rev-parse', 'HEAD')
     if os.environ['GITHUB_REF'] != 'refs/heads/main':
         output(revision=source, release='false', version='')
@@ -154,9 +165,7 @@ def prepare():
             # A newer main run includes these changes; never publish a stale base.
             output(revision=source, release='false', version='')
             return
-    manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
-    package = manifest['workspace']['package'] if 'workspace' in manifest and 'package' in manifest['workspace'] else manifest['package']
-    current = package['version']
+    current = manifest.policy_version(manifest.version())
     tag_format = os.environ.get('RELEASE_TAG_FORMAT', 'semver')
     tags = {tag: tag_version(tag, tag_format)
             for tag in run('git', 'tag', '--merged', 'HEAD', '--list', 'v*').splitlines()}
@@ -168,13 +177,14 @@ def prepare():
         previous = [version for name, version in tags.items() if name != tag]
         baseline = max(previous, key=version_tuple) if previous else None
         complete_plan(run('git', 'rev-parse', f'{tag}^{{commit}}'),
-                      tags[tag], tags[tag], baseline)
+                      tags[tag], tags[tag], baseline, manifest_kind=manifest_kind)
         return
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tags[tag] if tag else None, messages,
                            os.environ.get('RELEASE_BREAKING_CHANGE_BUMP', 'major'))
-    complete_plan(source, current, version, tags[tag] if tag else None)
+    complete_plan(source, current, version, tags[tag] if tag else None,
+                  manifest_kind=manifest_kind)
 
 
 def gh_api(*args, **kwargs):
@@ -184,7 +194,7 @@ def gh_api(*args, **kwargs):
     return result.stdout
 
 
-def write_release_commit(source, version):
+def write_release_commit(source, version, manifest_kind='cargo'):
     """Record the version commit on main with an expected-head guard.
 
     `GH_TOKEN` must be the authorized release writer (the organisation's
@@ -193,14 +203,11 @@ def write_release_commit(source, version):
     push starts the ordinary main pipeline, which then finds the prepared
     version and resumes at this exact commit.
     """
-    subprocess.run(['cargo', 'version-info', 'bump', '--version', version, '--no-commit'], check=True)
-    paths = run('git', 'diff', '--name-only').splitlines()
+    manifest = ReleaseManifest(manifest_kind)
+    manifest.bump(version)
     # Release lockfiles bind validation and publication to one dependency graph,
     # including libraries that previously ignored Cargo.lock in development.
-    if pathlib.Path('Cargo.lock').exists() and 'Cargo.lock' not in paths:
-        paths.append('Cargo.lock')
-    if 'Cargo.toml' not in paths:
-        raise RuntimeError('Version bump did not update Cargo.toml')
+    paths = manifest.release_paths(run('git', 'diff', '--name-only').splitlines())
     additions = [{'path': path, 'contents': base64.b64encode(pathlib.Path(path).read_bytes()).decode()}
                  for path in paths]
     payload = {
