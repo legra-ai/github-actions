@@ -89,6 +89,14 @@ class MajorApprovalTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.complete_plan('tagged', '2.0.0', '2.0.0', '1.2.3')
 
+    def test_exact_approval_allows_the_planned_version_write(self):
+        with patch.object(release, 'gh_api', return_value=json.dumps([self.review()])), \
+                patch.object(release, 'write_release_commit', return_value='prepared') as write, \
+                patch.object(release, 'output') as output:
+            release.complete_plan('a' * 40, '1.2.3', '2.0.0', '1.2.3')
+        write.assert_called_once_with('a' * 40, '2.0.0')
+        output.assert_called_once_with(revision='prepared', release='true', version='2.0.0')
+
     def test_review_lookup_failure_is_fatal(self):
         with patch.object(release, 'gh_api', side_effect=RuntimeError('403')), \
                 self.assertRaisesRegex(RuntimeError, '403'):

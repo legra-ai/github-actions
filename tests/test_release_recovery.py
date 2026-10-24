@@ -84,6 +84,27 @@ class RecoveryTests(unittest.TestCase):
             release.prepare()
         output.assert_called_once_with(revision=current, release='false', version='1.2.3')
 
+    def test_automatic_major_cannot_write_without_approval(self):
+        self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace format')
+        result = subprocess.CompletedProcess([], 0, '{"draft": false}', '')
+        with self.mock_api(result), patch.object(release, 'gh_api', return_value='[]'), \
+                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40), \
+                patch.object(release, 'write_release_commit') as write, \
+                self.assertRaisesRegex(ValueError, 'explicit approval'):
+            release.prepare()
+        write.assert_not_called()
+
+    def test_pending_major_cannot_bypass_the_gate(self):
+        pathlib.Path('Cargo.toml').write_text('[package]\nname="example"\nversion="2.0.0"\n')
+        self.git('add', 'Cargo.toml')
+        self.git('commit', '-m', 'chore(release): prepare 2.0.0')
+        self.git('-c', 'tag.gpgsign=false', 'tag', 'v2.0.0')
+        result = subprocess.CompletedProcess([], 0, '{"draft": true}', '')
+        with self.mock_api(result), patch.object(release, 'gh_api', return_value='[]'), \
+                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40), \
+                self.assertRaisesRegex(ValueError, 'explicit approval'):
+            release.prepare()
+
     def test_api_failure_is_not_an_absent_release(self):
         self.git('commit', '--allow-empty', '-m', 'docs(readme): clarify')
         result = subprocess.CompletedProcess([], 1, '', 'gh: Forbidden (HTTP 403)')
