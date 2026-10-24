@@ -29,6 +29,7 @@ class RecoveryTests(unittest.TestCase):
         pathlib.Path('Cargo.toml').write_text('[package]\nname="example"\nversion="1.2.3"\n')
         self.git('add', 'Cargo.toml')
         self.git('commit', '-m', 'chore(release): prepare 1.2.3')
+        self.git('-c', 'tag.gpgsign=false', 'tag', 'v1.2.2')
         self.tagged = self.git('rev-parse', 'HEAD')
         self.git('-c', 'tag.gpgsign=false', 'tag', 'v1.2.3')
         self.git('remote', 'add', 'origin', self.directory.name)

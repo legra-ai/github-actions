@@ -39,3 +39,35 @@ as Cargo version `0.2.0-alpha.1`; the default `semver` recognizes
 the planner uses only the selected spelling and never retags historical releases.
 Outputs always carry the Cargo semantic version; companion hooks must synchronize
 Python's PEP 440 spelling before the verified version commit is recorded.
+
+## Major release approval
+
+A major-number increase never writes a version commit or authorizes publication
+without an explicit review by `jgeluk`. This includes manually raised manifests,
+initial releases with a nonzero major number, and retries of unfinished major
+releases. General implementation, merge, or release approval does not suffice.
+
+Call this action first with `plan-only: 'true'` using a read-only token. The
+`major-approval-required` output identifies plans needing review. This mode
+returns the proposed version and source but performs no version write.
+
+For those plans, run a job in a protected GitHub environment named
+`major-release`, configured with `jgeluk` as required reviewer and administrator
+bypass disabled. Name the job with the proposed version and show the workflow
+source SHA. The reviewer must enter this exact approval comment:
+
+```text
+Approve major release VERSION from WORKFLOW_SOURCE_SHA
+```
+
+Run normal preparation only after that job succeeds (or is skipped for a
+non-major plan). The action reads GitHub's review history for the current run
+and checks the human identity, environment, exact version, and workflow source.
+It does not accept a Boolean approval input. The calling workflow needs
+`actions: read` for this lookup. Do not approve the environment through an agent
+using the owner's credentials without the user's explicit approval of that
+specific major version and source.
+
+Keep the existing non-cancelling main concurrency group. If main advances
+before preparation, the existing expected-head checks prevent stale publication.
+Plan-only results must never be wired directly into publication.
