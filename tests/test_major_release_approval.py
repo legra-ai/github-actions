@@ -19,6 +19,7 @@ class MajorApprovalTests(unittest.TestCase):
             'GITHUB_REPOSITORY': 'legra-ai/example',
             'GITHUB_RUN_ID': '123',
             'GITHUB_SHA': 'a' * 40,
+            'RELEASE_APPROVAL_TOKEN': 'read-only-review-token',
         }, clear=True)
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -74,7 +75,8 @@ class MajorApprovalTests(unittest.TestCase):
                 release.require_major_approval('2.0.0')
         with patch.object(release, 'gh_api', return_value=json.dumps([self.review()])) as api:
             release.require_major_approval('2.0.0')
-        api.assert_called_once_with('repos/legra-ai/example/actions/runs/123/approvals')
+        self.assertEqual(api.call_args.args, ('repos/legra-ai/example/actions/runs/123/approvals',))
+        self.assertEqual(api.call_args.kwargs['env']['GH_TOKEN'], 'read-only-review-token')
 
     def test_patch_and_minor_releases_do_not_require_review(self):
         for version in ['1.2.4', '1.3.0']:

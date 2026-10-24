@@ -88,7 +88,8 @@ class RecoveryTests(unittest.TestCase):
         self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace format')
         result = subprocess.CompletedProcess([], 0, '{"draft": false}', '')
         with self.mock_api(result), patch.object(release, 'gh_api', return_value='[]'), \
-                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40), \
+                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40,
+                           RELEASE_APPROVAL_TOKEN='read-only'), \
                 patch.object(release, 'write_release_commit') as write, \
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.prepare()
@@ -101,7 +102,8 @@ class RecoveryTests(unittest.TestCase):
         self.git('-c', 'tag.gpgsign=false', 'tag', 'v2.0.0')
         result = subprocess.CompletedProcess([], 0, '{"draft": true}', '')
         with self.mock_api(result), patch.object(release, 'gh_api', return_value='[]'), \
-                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40), \
+                patch.dict(os.environ, GITHUB_RUN_ID='123', GITHUB_SHA='a' * 40,
+                           RELEASE_APPROVAL_TOKEN='read-only'), \
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.prepare()
 

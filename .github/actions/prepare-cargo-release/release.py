@@ -92,7 +92,9 @@ def require_major_approval(version):
     if not re.fullmatch(r'[0-9a-f]{40}', source) or not run_id.isdecimal():
         raise ValueError('Invalid workflow approval identity')
     comment = f'Approve major release {version} from {source}'
-    reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals'))
+    review_environment = dict(os.environ, GH_TOKEN=os.environ['RELEASE_APPROVAL_TOKEN'])
+    reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals',
+                               env=review_environment))
     for review in reviews:
         if (review['state'] == 'approved'
                 and review['user']['login'] == 'jgeluk'
