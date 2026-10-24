@@ -4,6 +4,9 @@ inputs:
   token:
     required: true
     description: Authorized writer token (the release-writer GitHub App, minted per run and scoped to this repository); records the version commit on main
+  breaking-change-bump:
+    description: Bump level for breaking changes (major or minor); use minor only under an explicit pre-production release policy
+    default: major
   plan-only:
     description: Calculate the release decision without writing a version commit or authorizing publication
     default: 'false'
@@ -33,6 +36,7 @@ runs:
       shell: bash
       env:
         RELEASE_APPROVAL_TOKEN: ${{ github.token }}
+        RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
         RELEASE_PLAN_ONLY: ${{ inputs.plan-only }}
         GH_TOKEN: ${{ inputs.token }}
         RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}
