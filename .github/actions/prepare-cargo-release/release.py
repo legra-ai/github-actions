@@ -95,6 +95,11 @@ def require_major_approval(version):
     review_environment = dict(os.environ, GH_TOKEN=os.environ['RELEASE_APPROVAL_TOKEN'])
     reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals',
                                env=review_environment))
+    if any(review['state'] == 'rejected'
+           and any(environment['name'] == 'major-release'
+                   for environment in review['environments'])
+           for review in reviews):
+        raise ValueError('Major release requires explicit approval; this run has a rejected review')
     for review in reviews:
         if (review['state'] == 'approved'
                 and review['user']['login'] == 'jgeluk'

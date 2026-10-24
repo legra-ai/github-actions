@@ -91,6 +91,12 @@ class MajorApprovalTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.complete_plan('tagged', '2.0.0', '2.0.0', '1.2.3')
 
+    def test_rejected_review_cannot_reuse_an_earlier_approval(self):
+        reviews = [self.review(), self.review(state='rejected')]
+        with patch.object(release, 'gh_api', return_value=json.dumps(reviews)), \
+                self.assertRaisesRegex(ValueError, 'explicit approval'):
+            release.require_major_approval('2.0.0')
+
     def test_exact_approval_allows_the_planned_version_write(self):
         with patch.object(release, 'gh_api', return_value=json.dumps([self.review()])), \
                 patch.object(release, 'write_release_commit', return_value='prepared') as write, \
