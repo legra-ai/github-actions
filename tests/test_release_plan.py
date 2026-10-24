@@ -41,6 +41,29 @@ class ReleasePlanTests(unittest.TestCase):
         for message in ['fix(tree)!: change format', 'feat(tree): change\n\nBREAKING CHANGE: wire shape']:
             self.assertEqual(release.next_version('1.2.3', '1.2.3', [message]), '2.0.0')
 
+    def test_zero_user_model_breaking_changes_release_a_minor(self):
+        for current, expected in [('0.2.2', '0.3.0'), ('2.0.3', '2.1.0'), ('6.1.0', '6.2.0')]:
+            for message in ['fix(model)!: replace shape',
+                            'feat(model): replace\n\nBREAKING CHANGE: new shape']:
+                with self.subTest(current=current, message=message):
+                    self.assertEqual(
+                        release.next_version(current, current, [message], 'minor'), expected)
+
+    def test_minor_policy_keeps_fixes_patch_and_features_minor(self):
+        self.assertEqual(release.next_version('6.1.0', '6.1.0', ['fix(model): repair'], 'minor'), '6.1.1')
+        self.assertEqual(release.next_version('6.1.0', '6.1.0', ['feat(model): add'], 'minor'), '6.2.0')
+
+    def test_invalid_breaking_change_policy_is_never_defaulted(self):
+        for policy in ['patch', 'typo', '', None]:
+            with self.subTest(policy=policy), self.assertRaises(ValueError):
+                release.next_version('6.1.0', '6.1.0', ['fix(model)!: replace'], policy)
+
+    def test_minor_policy_keeps_prereleases_in_their_candidate_series(self):
+        self.assertEqual(
+            release.next_version('6.2.0-alpha.1', '6.2.0-alpha.1',
+                                 ['feat(model)!: replace'], 'minor'),
+            '6.2.0-alpha.2')
+
     def test_docs_and_ci_alone_do_not_release(self):
         self.assertIsNone(release.next_version('0.1.1', '0.1.1', ['docs(readme): clarify', 'ci(test): adjust runner']))
 

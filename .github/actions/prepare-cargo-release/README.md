@@ -71,3 +71,17 @@ specific major version and source.
 Keep the existing non-cancelling main concurrency group. If main advances
 before preparation, the existing expected-head checks prevent stale publication.
 Plan-only results must never be wired directly into publication.
+
+## Zero-user pre-production models
+
+Repositories whose owner has explicitly chosen minor releases for breaking
+changes set `breaking-change-bump: minor` on **both** read-only planning and normal
+preparation. Breaking markers remain accurate: they select a minor under this
+policy instead of silently increasing the major number. Fixes remain patches,
+features remain minors, and prereleases stay within their candidate series.
+Only `major` and `minor` are valid settings; invalid policies fail.
+
+The default remains `major` for repositories without that explicit policy.
+The explicit major approval guard still applies to any actual major-number
+increase, including manual manifests and initial releases. This option does not
+authorize renumbering published versions or lowering the manifest behind a tag.
