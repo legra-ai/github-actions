@@ -6,6 +6,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -49,6 +50,72 @@ class ReleaseWriteTests(unittest.TestCase):
                          {'Cargo.toml', 'Cargo.lock'})
         for name in ('Cargo.toml', 'Cargo.lock'):
             self.assertIn('1.2.4', pathlib.Path(name).read_text())
+
+    @unittest.skipUnless(os.environ.get('RELEASE_TOOL_CONTRACT') == '1',
+                         'Public release tool contract runs in the native platform jobs')
+    def test_public_tool_preserves_independent_components_and_syncs_python_locks(self):
+        pathlib.Path('src').mkdir()
+        pathlib.Path('src/lib.rs').write_text('// Root fixture.\n')
+        pathlib.Path('child/src').mkdir(parents=True)
+        pathlib.Path('child/src/lib.rs').write_text('// Child fixture.\n')
+        child = '[package]\nname="component"\nversion.workspace=true\nedition="2024"\n'
+        pathlib.Path('child/Cargo.toml').write_text(child)
+        pathlib.Path('Cargo.toml').write_text('''[package]
+name="fixture"
+version="0.2.0-alpha.19"
+edition="2024"
+[package.metadata.version-info]
+pre_bump_hooks=["uv run --no-project --python 3.13.16 python sync_python.py {{version}}"]
+additional_files=["pyproject.toml", "uv.lock"]
+[workspace]
+members=["child"]
+[workspace.package]
+version="0.7.0"
+''')
+        pathlib.Path('pyproject.toml').write_text(
+            '[project]\nname="fixture"\nversion="0.2.0a19"\nrequires-python=">=3.13,<3.14"\n')
+        pathlib.Path('sync_python.py').write_text(
+            'import subprocess, sys\n'
+            'subprocess.run(["uv", "version", sys.argv[1].replace("-alpha.", "a"), '
+            '"--no-sync"], check=True)\n')
+        subprocess.run(['uv', 'lock', '--python', '3.13.16'], check=True)
+        subprocess.run(['cargo', 'generate-lockfile', '--offline'], check=True)
+        self.git('add', 'Cargo.toml', 'Cargo.lock', 'child', 'src', 'pyproject.toml',
+                 'uv.lock', 'sync_python.py')
+        self.git('commit', '-m', 'test(fixture): add independently versioned components')
+        source = self.git('rev-parse', 'HEAD')
+        real_run = subprocess.run
+        writes = []
+
+        def run(args, **kwargs):
+            if args[:2] == ['gh', 'api']:
+                writes.append(json.loads(kwargs['input'])['variables']['input'])
+                return subprocess.CompletedProcess(args, 0,
+                    '{"data":{"createCommitOnBranch":{"commit":{"oid":"prepared"}}}}', '')
+            return real_run(args, **kwargs)
+
+        with patch.dict(os.environ, CARGO_NET_OFFLINE='true'), \
+                patch.object(release.subprocess, 'run', side_effect=run):
+            revision = release.write_release_commit(source, '0.2.0-alpha.20')
+        self.assertEqual(revision, 'prepared')
+        self.assertEqual(self.git('rev-parse', 'HEAD'), source)
+        document = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
+        self.assertEqual(document['package']['version'], '0.2.0-alpha.20')
+        self.assertEqual(document['workspace']['package']['version'], '0.7.0')
+        self.assertEqual(pathlib.Path('child/Cargo.toml').read_text(), child)
+        packages = tomllib.loads(pathlib.Path('Cargo.lock').read_text())['package']
+        self.assertEqual({item['name']: item['version'] for item in packages},
+                         {'fixture': '0.2.0-alpha.20', 'component': '0.7.0'})
+        self.assertEqual(tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+                         ['project']['version'], '0.2.0a20')
+        python_packages = tomllib.loads(pathlib.Path('uv.lock').read_text())['package']
+        self.assertEqual([(item['name'], item['version']) for item in python_packages],
+                         [('fixture', '0.2.0a20')])
+        self.assertFalse(pathlib.Path('.venv').exists())
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0]['expectedHeadOid'], source)
+        self.assertEqual({item['path'] for item in writes[0]['fileChanges']['additions']},
+                         {'Cargo.toml', 'Cargo.lock', 'pyproject.toml', 'uv.lock'})
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
