@@ -48,7 +48,21 @@ class ReleaseManifest:
         document = tomllib.loads(Path(self.path).read_text() if contents is None else contents)
         if self.kind == 'cargo':
             workspace = document.get('workspace', {})
-            package = workspace.get('package', document.get('package', {}))
+            if not isinstance(workspace, dict):
+                raise ValueError('Cargo workspace must be a table')
+            root = document.get('package')
+            if root is None:
+                package = workspace.get('package', {})
+            elif not isinstance(root, dict):
+                raise ValueError('Cargo root package must be a table')
+            elif isinstance(root.get('version'), str):
+                package = root
+            elif (isinstance(root.get('version'), dict)
+                  and set(root['version']) == {'workspace'}
+                  and root['version']['workspace'] is True):
+                package = workspace.get('package', {})
+            else:
+                raise ValueError('Cargo root package requires a static or inherited version')
         else:
             package = document.get('project', {})
             if not isinstance(package, dict):
