@@ -34,7 +34,9 @@ def tag_version(tag, tag_format):
     return base
 
 
-def next_version(current, latest, messages):
+def next_version(current, latest, messages, breaking_change_bump='major'):
+    if breaking_change_bump not in ('major', 'minor'):
+        raise ValueError(f'Invalid breaking-change bump policy: {breaking_change_bump!r}')
     policy = json.loads((pathlib.Path(__file__).parent.parent / 'conventional-commit/policy.json').read_text())
     for message in messages:
         header = message.splitlines()[0] if message else ''
@@ -49,7 +51,7 @@ def next_version(current, latest, messages):
     for message in messages:
         header = message.splitlines()[0]
         if re.match(r'\w+(?:\([^\n]+\))?!:', header) or re.search(r'^BREAKING[ -]CHANGE:', message, re.M):
-            level = max(level, 3)
+            level = max(level, 2 if breaking_change_bump == 'minor' else 3)
         elif re.match(r'feat(?:\([^\n]+\))?:', header):
             level = max(level, 2)
         elif not re.match(r'(?:docs|style|ci)\([^\n]+\):|chore\(release\):', header):
@@ -170,7 +172,8 @@ def prepare():
         return
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
-    version = next_version(current, tags[tag] if tag else None, messages)
+    version = next_version(current, tags[tag] if tag else None, messages,
+                           os.environ.get('RELEASE_BREAKING_CHANGE_BUMP', 'major'))
     complete_plan(source, current, version, tags[tag] if tag else None)
 
 

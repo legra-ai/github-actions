@@ -84,6 +84,18 @@ class RecoveryTests(unittest.TestCase):
             release.prepare()
         output.assert_called_once_with(revision=current, release='false', version='1.2.3')
 
+    def test_preproduction_policy_plans_a_minor_without_requesting_major_review(self):
+        self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace format')
+        result = subprocess.CompletedProcess([], 0, '{"draft": false}', '')
+        with self.mock_api(result), patch.dict(os.environ, RELEASE_BREAKING_CHANGE_BUMP='minor'), \
+                patch.object(release, 'require_major_approval') as approval, \
+                patch.object(release, 'write_release_commit', return_value='prepared') as write, \
+                patch.object(release, 'output') as output:
+            release.prepare()
+        approval.assert_not_called()
+        write.assert_called_once_with(self.git('rev-parse', 'HEAD'), '1.3.0')
+        output.assert_called_once_with(revision='prepared', release='true', version='1.3.0')
+
     def test_automatic_major_cannot_write_without_approval(self):
         self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace format')
         result = subprocess.CompletedProcess([], 0, '{"draft": false}', '')
