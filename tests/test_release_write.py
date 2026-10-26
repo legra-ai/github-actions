@@ -21,7 +21,7 @@ class ReleaseWriteTests(unittest.TestCase):
                          'Public release tool contract runs in the native platform jobs')
     def test_public_tool_prepares_manifest_and_lock_without_a_local_commit(self):
         version = subprocess.check_output(['cargo', 'version-info', '--tool-version'], text=True)
-        self.assertRegex(version, r'\b1\.0\.0\b')
+        self.assertRegex(version, r'\b1\.0\.4\b')
         pathlib.Path('src').mkdir()
         pathlib.Path('src/lib.rs').write_text('pub const FIXTURE: bool = true;\n')
         self.git('add', 'src/lib.rs')

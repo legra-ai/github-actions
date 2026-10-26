@@ -35,7 +35,7 @@ runs:
     - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
       if: inputs.manifest-kind == 'cargo'
       with:
-        tool: cargo-version-info@1.0.0
+        tool: cargo-version-info@1.0.4
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       if: inputs.manifest-kind == 'uv'
       with:
