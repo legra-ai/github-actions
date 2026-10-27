@@ -72,7 +72,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
       - uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
-          tool: cargo-version-info@1.0.0
+          tool: cargo-version-info@1.0.4
       - id: prepare
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token || github.token }}

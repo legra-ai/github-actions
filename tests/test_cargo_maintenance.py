@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[1]
 
 class MaintenanceTests(unittest.TestCase):
     def test_release_preparation_uses_the_current_contract_tested_public_tool(self):
-        expected = 'tool: cargo-version-info@1.0.0'
+        expected = 'tool: cargo-version-info@1.0.4'
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertIn(expected, workflow)
         validation = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
