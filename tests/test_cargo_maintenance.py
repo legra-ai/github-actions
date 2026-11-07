@@ -6,6 +6,27 @@ ROOT = Path(__file__).parents[1]
 
 
 class MaintenanceTests(unittest.TestCase):
+    def test_repository_tests_with_hyphenated_names_are_executed(self):
+        import subprocess
+        import sys
+        import tempfile
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertIn('run: python3 "$POLICY_ROOT/.github/scripts/run_repository_tests.py"', workflow)
+        runner = ROOT / '.github/scripts/run_repository_tests.py'
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'scripts').mkdir()
+            (root / 'scripts/test-commit-policy.py').write_text(
+                "import pathlib, unittest\n"
+                "class Contract(unittest.TestCase):\n"
+                "    def test_runs(self):\n"
+                "        pathlib.Path('executed').write_text('yes')\n")
+            result = subprocess.run([sys.executable, str(runner)], cwd=root,
+                                    capture_output=True, text=True)
+            self.assertTrue((root / 'executed').exists(), result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_release_preparation_uses_the_current_contract_tested_public_tool(self):
         expected = 'tool: cargo-version-info@1.0.4'
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
