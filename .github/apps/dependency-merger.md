@@ -39,7 +39,7 @@ check-rule bypasses. Preserve required reviews for other actors and preserve
 existing release-writer exceptions needed for signed version preparation.
 
 For github-actions itself, introduce strict required contexts: test,
-workflow-identity, package-isolation (ubuntu-24.04), package-isolation (macos-15),
+workflow-identity, package-isolation (ubuntu-24.04), package-isolation (macos-latest),
 package-isolation (windows-latest) and Conventional Commit, all from integration
 15368. This repo has no version publisher and needs no CI-bypass actor. Its
 review rule may allow the administrator role and the dedicated merger only.

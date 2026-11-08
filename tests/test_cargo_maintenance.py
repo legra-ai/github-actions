@@ -1,5 +1,7 @@
 """Guard credential-free validation and immutable Cargo release ordering."""
 from pathlib import Path
+import json
+import re
 import unittest
 
 ROOT = Path(__file__).parents[1]
@@ -182,3 +184,16 @@ class LatestMacOSTests(unittest.TestCase):
     def test_shared_policy_is_itself_validated_on_latest_macos(self):
         workflow = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
         self.assertIn('os: [ubuntu-24.04, macos-latest, windows-latest]', workflow)
+
+    def test_required_check_template_matches_the_live_platform_matrix(self):
+        workflow = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
+        job = workflow.split('  package-isolation:\n', 1)[1]
+        matrix = re.search(r'os: \[(.*?)\]', job).group(1).split(', ')
+        template = json.loads((ROOT / '.github/apps/dependency-merger-pilot.json').read_text())
+        rules = template['shared_policy_rules']['checks']['rules']
+        rule = next(rule for rule in rules if rule['type'] == 'required_status_checks')
+        checks = rule['parameters']['required_status_checks']
+        self.assertCountEqual([check['context'] for check in checks],
+            ['test', 'workflow-identity', 'Conventional Commit',
+             *(f'package-isolation ({system})' for system in matrix)])
+        self.assertTrue(all(check['integration_id'] == 15368 for check in checks))
