@@ -1,9 +1,22 @@
 """Public installation-channel checks and immutable recovery-archive identity."""
 
 import json
+import re
 import tarfile
 from urllib.parse import quote
 import zipfile
+
+
+def registry_version(version, registry):
+    """Map the release's semantic version to a registry's native spelling."""
+    number = r'(?:0|[1-9]\d*)'
+    match = re.fullmatch(rf'({number}\.{number}\.{number})(?:-(alpha|beta|rc)\.({number}))?', version)
+    if match is None:
+        raise ValueError('Expected a semantic release version with optional alpha/beta/rc candidate')
+    base, channel, candidate = match.groups()
+    if registry != 'pypi' or channel is None:
+        return version
+    return base + {'alpha': 'a', 'beta': 'b', 'rc': 'rc'}[channel] + candidate
 
 
 class NotPublished(ValueError):
@@ -79,8 +92,9 @@ class Sources:
                     raise ValueError('Published npm archive differs from the preserved release archive')
 
     def check_pypi(self, name, version, manifest):
-        metadata = self.api.json(f'https://pypi.org/pypi/{quote(name)}/{version}/json')
-        if metadata is None or metadata['info']['version'] != version:
+        native_version = registry_version(version, 'pypi')
+        metadata = self.api.json(f'https://pypi.org/pypi/{quote(name)}/{native_version}/json')
+        if metadata is None or metadata['info']['version'] != native_version:
             raise NotPublished(f'{name} {version} is missing')
         files = metadata['urls']
         if len(files) > 64:
