@@ -84,9 +84,15 @@ def optional_feature_args(package, system=None):
 def package_metadata(root, env):
     metadata = json.loads(subprocess.check_output(
         ['cargo', 'metadata', '--locked', '--no-deps', '--format-version', '1'], cwd=root, env=env))
-    if len(metadata['packages']) != 1:
-        raise ValueError('Package validation requires exactly one Cargo package')
-    return metadata['packages'][0]
+    manifest = (root / 'Cargo.toml').resolve()
+    candidates = [package for package in metadata['packages']
+                  if Path(package['manifest_path']).resolve() == manifest]
+    if len(candidates) != 1 or candidates[0]['publish'] == []:
+        raise ValueError('Package validation requires one publishable root Cargo package')
+    package = candidates[0]
+    if any(member is not package and member['publish'] != [] for member in metadata['packages']):
+        raise ValueError('Additional workspace members must be private (publish = false)')
+    return package
 
 
 def feature_commands(package, system=None):
@@ -96,7 +102,7 @@ def feature_commands(package, system=None):
         commands.append(['cargo', 'test', '--locked', '--doc', *flags])
     commands += [['cargo', 'clippy', '--locked', '--all-targets', *flags, '--', '-D', 'warnings'],
                  ['cargo', 'doc', '--locked', '--no-deps', *flags]]
-    return commands
+    return [command[:2] + ['--package', package['name']] + command[2:] for command in commands]
 
 
 def checkout():
@@ -123,7 +129,7 @@ def main():
             archive_path = root / f'{stem}.crate'
             archive_path.write_bytes(data)
         else:
-            subprocess.run(['cargo', 'package', '--locked', '--allow-dirty', '--no-verify',
+            subprocess.run(['cargo', 'package', '--package', name, '--locked', '--allow-dirty', '--no-verify',
                             '--target-dir', str(root)], env=package_env, check=True)
             archive_path = root / 'package' / f'{stem}.crate'
         with tarfile.open(archive_path) as archive:

@@ -16,7 +16,7 @@ SPEC.loader.exec_module(PACKAGE)
 
 class PackageFeatureTests(unittest.TestCase):
     def package(self, exclusions=None):
-        return {'features': {'default': [], 'jemalloc': [], 'profiling': ['jemalloc']},
+        return {'name': 'fixture', 'features': {'default': [], 'jemalloc': [], 'profiling': ['jemalloc']},
                 'metadata': {'legra-ci': {'unsupported-features': exclusions or {}}},
                 'targets': [{'kind': ['lib']}]}
 
@@ -119,8 +119,8 @@ class PackageFeatureTests(unittest.TestCase):
         self.assertIn('cargo test --locked --all-targets', workflow)
         self.assertIn('package_test.py" checkout', workflow)
         commands = PACKAGE.feature_commands(self.package(), 'Linux')
-        self.assertIn(['cargo', 'test', '--locked', '--all-targets', '--all-features'], commands)
-        self.assertIn(['cargo', 'test', '--locked', '--doc', '--all-features'], commands)
+        self.assertIn(['cargo', 'test', '--package', 'fixture', '--locked', '--all-targets', '--all-features'], commands)
+        self.assertIn(['cargo', 'test', '--package', 'fixture', '--locked', '--doc', '--all-features'], commands)
 
 
 if __name__ == '__main__':
