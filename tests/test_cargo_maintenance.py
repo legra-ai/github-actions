@@ -168,3 +168,17 @@ class PackageToolchainTests(unittest.TestCase):
             manifest.write_text('[toolchain]\nchannel="nightly"\n')
             with self.assertRaises(ValueError):
                 module.package_environment(root)
+
+class LatestMacOSTests(unittest.TestCase):
+    def test_general_tests_track_latest_macos_arm64(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        test_job = workflow.split('  test:\n', 1)[1].split('  binary:\n', 1)[0]
+        self.assertIn('os: [ubuntu-24.04, macos-latest, windows-latest]', test_job)
+
+    def test_arm64_binary_build_and_install_validation_use_latest_macos(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        self.assertEqual(workflow.count('- os: macos-latest\n            target: aarch64-apple-darwin'), 2)
+
+    def test_shared_policy_is_itself_validated_on_latest_macos(self):
+        workflow = (ROOT / '.github/workflows/release-action-tests.yml').read_text()
+        self.assertIn('os: [ubuntu-24.04, macos-latest, windows-latest]', workflow)
