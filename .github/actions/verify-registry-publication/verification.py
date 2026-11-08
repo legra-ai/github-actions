@@ -10,7 +10,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'monitor-release'))
 from release_http import API, DownloadNotFound
-from release_sources import NotPublished, Sources
+from release_sources import NotPublished, Sources, registry_version
 
 
 def await_publication(check, timeout, *, clock=time.monotonic, sleep=time.sleep):
@@ -55,8 +55,7 @@ class Verifier(Sources):
             raise ValueError('Unsupported registry')
         if registry in ('npm', 'pypi') and manifest is None:
             raise ValueError('Language bindings require a preserved release archive')
-        if not re.fullmatch(r'\d+\.\d+\.\d+', version):
-            raise ValueError('Expected a stable release version')
+        registry_version(version, registry)
         if not re.fullmatch(r'[a-f0-9]{40}', revision):
             raise ValueError('Expected the complete validated source revision')
         self.api = api

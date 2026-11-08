@@ -114,7 +114,7 @@ def checkout():
 
 def main():
     package_env = package_environment(Path.cwd())
-    package = tomllib.loads(Path('Cargo.toml').read_text())['package']
+    package = package_metadata(Path.cwd(), package_env)
     name, version = package['name'], package['version']
     stem = f'{name}-{version}'
     published = os.environ.get('PACKAGE_PUBLISHED') == 'true'
