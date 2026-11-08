@@ -254,8 +254,8 @@ class UvActionContractTests(unittest.TestCase):
             self.assertIn("RELEASE_MANIFEST_KIND: ${{ inputs.manifest-kind }}", action)
         self.assertIn("if: inputs.manifest-kind == 'cargo'", prepare)
         self.assertIn("if: inputs.manifest-kind == 'uv'", prepare)
-        self.assertIn('astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884', prepare)
-        self.assertIn('version: "0.13.1"', prepare)
+        self.assertIn('astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2', prepare)
+        self.assertIn('version: "0.13.7"', prepare)
 
 
 if __name__ == '__main__':
