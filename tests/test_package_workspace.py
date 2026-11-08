@@ -1,4 +1,5 @@
 """Private native adapters must not hide or replace the root release package."""
+import contextlib
 import importlib.util
 import json
 from pathlib import Path
@@ -43,6 +44,22 @@ class PackageWorkspaceTests(unittest.TestCase):
             for packages in ([], [public, public], [self.package(root, 'Cargo.toml', 'kernel', [])]):
                 with self.subTest(packages=packages), self.assertRaises(ValueError):
                     self.metadata(root, packages)
+
+    def test_archive_path_uses_resolved_workspace_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Cargo.toml').write_text('[package]\nname="kernel"\nversion.workspace=true\n[workspace.package]\nversion="0.1.0-alpha.1"\n')
+            (root / 'rust-toolchain.toml').write_text('[toolchain]\nchannel="1.99.1"\n')
+            package = self.package(root, 'Cargo.toml', 'kernel')
+            package['version'] = '0.1.0-alpha.1'
+            class StopBeforeExtraction(Exception):
+                pass
+            with contextlib.chdir(root), patch.object(POLICY, 'package_metadata', return_value=package), \
+                    patch.object(POLICY.subprocess, 'run'), \
+                    patch.object(POLICY.tarfile, 'open', side_effect=StopBeforeExtraction) as archive:
+                with self.assertRaises(StopBeforeExtraction):
+                    POLICY.main()
+            self.assertEqual(Path(archive.call_args.args[0]).name, 'kernel-0.1.0-alpha.1.crate')
 
     def test_every_checkout_command_names_the_selected_package(self):
         with tempfile.TemporaryDirectory() as directory:
