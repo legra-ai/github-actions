@@ -21,7 +21,7 @@ class ReleaseWriteTests(unittest.TestCase):
                          'Public release tool contract runs in the native platform jobs')
     def test_public_tool_prepares_manifest_and_lock_without_a_local_commit(self):
         version = subprocess.check_output(['cargo', 'version-info', '--tool-version'], text=True)
-        self.assertRegex(version, r'\b1\.0\.4\b')
+        self.assertRegex(version, r'\b1\.0\.13\b')
         pathlib.Path('src').mkdir()
         pathlib.Path('src/lib.rs').write_text('pub const FIXTURE: bool = true;\n')
         self.git('add', 'src/lib.rs')
@@ -65,7 +65,7 @@ name="fixture"
 version="0.2.0-alpha.19"
 edition="2024"
 [package.metadata.version-info]
-pre_bump_hooks=["uv run --no-project --python 3.13.16 python sync_python.py {{version}}"]
+pre_bump_hooks=["uv run --no-project --python 3.13.18 python sync_python.py {{version}}"]
 additional_files=["pyproject.toml", "uv.lock"]
 [workspace]
 members=["child"]
@@ -78,7 +78,7 @@ version="0.7.0"
             'import subprocess, sys\n'
             'subprocess.run(["uv", "version", sys.argv[1].replace("-alpha.", "a"), '
             '"--no-sync"], check=True)\n')
-        subprocess.run(['uv', 'lock', '--python', '3.13.16'], check=True)
+        subprocess.run(['uv', 'lock', '--python', '3.13.18'], check=True)
         subprocess.run(['cargo', 'generate-lockfile', '--offline'], check=True)
         self.git('add', 'Cargo.toml', 'Cargo.lock', 'child', 'src', 'pyproject.toml',
                  'uv.lock', 'sync_python.py')
