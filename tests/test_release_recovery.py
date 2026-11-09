@@ -48,6 +48,17 @@ class RecoveryTests(unittest.TestCase):
 
         return patch.object(release.subprocess, 'run', side_effect=run)
 
+    def test_patch_policy_reaches_both_read_only_plan_and_release_preparation(self):
+        self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace representation')
+        source = self.git('rev-parse', 'HEAD')
+        for plan_only in ['true', 'false']:
+            with self.subTest(plan_only=plan_only), \
+                    patch.dict(os.environ, RELEASE_BUMP='patch', RELEASE_PLAN_ONLY=plan_only), \
+                    patch.object(release, 'release_pending', return_value=False), \
+                    patch.object(release, 'complete_plan') as complete:
+                release.prepare()
+            complete.assert_called_once_with(source, '1.2.3', '1.2.4', '1.2.3', manifest_kind='cargo')
+
     def test_python_alpha_resumes_original_tag_before_newer_main(self):
         pathlib.Path('Cargo.toml').write_text('[package]\nname="example"\nversion="1.3.0-alpha.2"\n')
         self.git('add', 'Cargo.toml')
