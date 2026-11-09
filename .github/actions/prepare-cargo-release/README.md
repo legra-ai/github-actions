@@ -104,3 +104,18 @@ The default remains `major` for repositories without that explicit policy.
 The explicit major approval guard still applies to any actual major-number
 increase, including manual manifests and initial releases. This option does not
 authorize renumbering published versions or lowering the manifest behind a tag.
+
+## Explicit patch-only releases
+
+An owner-approved pre-production repository may select `release-bump: patch` in
+both the read-only plan and release preparation, or once in the shared
+`cargo-maintenance.yml` workflow that supplies both paths. The default remains
+`conventional`. Patch-only selection validates every Conventional Commit first,
+then caps each automatic releasable increment at a patch, including features and
+breaking changes. Retain accurate breaking-change markers. Documentation, style
+and CI changes alone still do not trigger publication.
+
+This policy does not override a deliberately higher manifest version, accept a
+manifest behind its latest tag, promote a prerelease candidate, or bypass major
+release approval. It changes version selection only, never the tested-revision,
+publication, recovery or signing gates.

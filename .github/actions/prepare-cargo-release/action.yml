@@ -4,6 +4,9 @@ inputs:
   token:
     required: true
     description: Authorized writer token (the release-writer GitHub App, minted per run and scoped to this repository); records the version commit on main
+  release-bump:
+    description: Automatic increment policy (conventional or patch); patch caps every releasable change after commit validation
+    default: conventional
   breaking-change-bump:
     description: Bump level for breaking changes (major or minor); use minor only under an explicit pre-production release policy
     default: major
@@ -45,6 +48,7 @@ runs:
       env:
         RELEASE_APPROVAL_TOKEN: ${{ github.token }}
         RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
+        RELEASE_BUMP: ${{ inputs.release-bump }}
         RELEASE_PLAN_ONLY: ${{ inputs.plan-only }}
         GH_TOKEN: ${{ inputs.token }}
         RELEASE_TAG_FORMAT: ${{ inputs.tag-format }}

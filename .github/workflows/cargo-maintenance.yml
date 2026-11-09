@@ -10,6 +10,10 @@ on:
         description: library or binary
         default: library
         type: string
+      release-bump:
+        description: Automatic release increment policy (conventional or patch)
+        default: conventional
+        type: string
       breaking-change-bump:
         description: Version increment for breaking changes (major or minor)
         default: major
@@ -56,6 +60,7 @@ jobs:
           CRATE_KIND: ${{ inputs.kind }}
           RELEASE_CRATE: ${{ inputs.crate-name }}
           RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
+          RELEASE_BUMP: ${{ inputs.release-bump }}
         run: |
           python3 - <<'PY'
           import os, re, tomllib
@@ -64,6 +69,8 @@ jobs:
               raise ValueError('Policy revision must be an immutable commit')
           if os.environ['CRATE_KIND'] not in ('library', 'binary'):
               raise ValueError('Unsupported Cargo package kind')
+          if os.environ['RELEASE_BUMP'] not in ('conventional', 'patch'):
+              raise ValueError('Unsupported release bump policy')
           if os.environ['RELEASE_BREAKING_CHANGE_BUMP'] not in ('major', 'minor'):
               raise ValueError('Unsupported breaking-change bump policy')
           if tomllib.loads(Path('Cargo.toml').read_text())['package']['name'] != os.environ['RELEASE_CRATE']:
@@ -85,11 +92,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_PLAN_ONLY: 'true'
           RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
+          RELEASE_BUMP: ${{ inputs.release-bump }}
         run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
       - id: prepare
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token || github.token }}
           RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
+          RELEASE_BUMP: ${{ inputs.release-bump }}
         run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
       - id: manifest
         env:
