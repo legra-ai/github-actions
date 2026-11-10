@@ -7,15 +7,21 @@ module.exports = async function mergeTestedDependabot(github, context, appId) {
   if (run.event !== 'pull_request' || run.conclusion !== 'success' ||
       run.head_repository?.full_name !== repository) return;
 
+  const {data: metadata} = await github.rest.repos.get({owner, repo});
+  const branch = metadata?.default_branch;
+  if (typeof branch !== 'string' || !branch) {
+    throw new Error('Repository default branch metadata is required');
+  }
+
   const {data: pulls} = await github.rest.pulls.list({
-    owner, repo, state: 'open', base: 'main', head: `${owner}:${run.head_branch}`,
+    owner, repo, state: 'open', base: branch, head: `${owner}:${run.head_branch}`,
   });
   for (const pr of pulls) {
-    if (pr.user.login !== 'dependabot[bot]' || pr.base.ref !== 'main' ||
+    if (pr.user.login !== 'dependabot[bot]' || pr.base.ref !== branch ||
         pr.head.repo?.full_name !== repository || pr.head.sha !== run.head_sha) continue;
     const title = validateTitle(pr.title);
-    await requireStrictMergeIdentity(github, owner, repo, appId);
-    const {data: base} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+    await requireStrictMergeIdentity(github, owner, repo, appId, branch);
+    const {data: base} = await github.rest.repos.getBranch({owner, repo, branch});
     const baseSha = base.commit.sha;
     const {data: comparison} = await github.rest.repos.compareCommitsWithBasehead({
       owner, repo, basehead: `${baseSha}...${run.head_sha}`, per_page: 1,
@@ -26,9 +32,9 @@ module.exports = async function mergeTestedDependabot(github, context, appId) {
         await refreshBranch(github, owner, repo, pr.number, run.head_sha);
         return;
       }
-      throw new Error(`PR ${pr.number} does not include current main; rebase and retest`);
+      throw new Error(`PR ${pr.number} does not include current default branch; rebase and retest`);
     }
-    const {data: latest} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+    const {data: latest} = await github.rest.repos.getBranch({owner, repo, branch});
     if (latest.commit.sha !== baseSha) {
       await refreshBranch(github, owner, repo, pr.number, run.head_sha);
       return;
@@ -44,7 +50,7 @@ module.exports = async function mergeTestedDependabot(github, context, appId) {
       }));
     } catch (error) {
       if (![405, 409].includes(error.status)) throw error;
-      const {data: current} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+      const {data: current} = await github.rest.repos.getBranch({owner, repo, branch});
       if (current.commit.sha === baseSha) throw error;
       await refreshBranch(github, owner, repo, pr.number, run.head_sha);
       return;
@@ -67,7 +73,7 @@ async function refreshBranch(github, owner, repo, number, sha) {
   console.log(`PR ${number} refreshed; waiting for CI on its new head`);
 }
 
-async function requireStrictMergeIdentity(github, owner, repo, appId) {
+async function requireStrictMergeIdentity(github, owner, repo, appId, branch) {
   if (!Number.isSafeInteger(appId) || appId <= 0) {
     throw new Error('A dedicated merge App ID is required');
   }
@@ -81,7 +87,7 @@ async function requireStrictMergeIdentity(github, owner, repo, appId) {
     throw new Error('Merge App requires administration read and only contents/pull_requests/workflows write');
   }
   const {data: rules} = await github.request('GET /repos/{owner}/{repo}/rules/branches/{branch}', {
-    owner, repo, branch: 'main', per_page: 100,
+    owner, repo, branch, per_page: 100,
   });
   // bounded: one API page contains at most 100 effective branch rules.
   for (const rule of rules) {

@@ -1,0 +1,9 @@
+name: Require complete CI success
+description: Reject failed, cancelled, invalid, empty or entirely skipped dependency graphs
+inputs:
+  results:
+    description: Complete needs map serialized with toJSON(needs)
+    required: true
+runs:
+  using: node24
+  main: verify.cjs

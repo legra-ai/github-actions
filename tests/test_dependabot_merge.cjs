@@ -19,7 +19,7 @@ function fixture() {
     request: async route => ({data: route.endsWith('/{ruleset_id}') ? policy : rules}),
     rest: {
     apps: {getBySlug: async () => ({data: app})},
-    repos: {getBranch: async () => ({data: {commit: {sha: 'current-base'}}}),
+    repos: {get: async () => ({data: {default_branch: 'main'}}), getBranch: async () => ({data: {commit: {sha: 'current-base'}}}),
       compareCommitsWithBasehead: async () => ({data: comparison})},
     pulls: {updateBranch: async args => {updates.push(args); return {status: 202};}, list: async () => ({data: [pr]}), merge: async args => {calls.push(args); return {data: {merged: true}};}},
     actions: {createWorkflowDispatch: async args => calls.push(args)},
@@ -81,7 +81,7 @@ for (const status of ['behind', 'diverged']) {
 test('comparison must prove that the exact current main commit is an ancestor', async () => {
   const f = fixture();
   f.comparison.merge_base_commit.sha = 'old-base';
-  await assert.rejects(merge(f.github, f.context, f.appId), /current main.*rebase.*retest/i);
+  await assert.rejects(merge(f.github, f.context, f.appId), /current default branch.*rebase.*retest/i);
   assert.deepEqual(f.calls, []);
 });
 
@@ -94,7 +94,7 @@ test('main advancing during the ancestry check invalidates the green run', async
   assert.equal(f.updates.length, 1);
 });
 
-for (const operation of ['getBranch', 'compareCommitsWithBasehead']) {
+for (const operation of ['get', 'getBranch', 'compareCommitsWithBasehead']) {
   test(`${operation} failure cannot authorize a merge`, async () => {
     const f = fixture();
     f.github.rest.repos[operation] = async () => {throw new Error('API unavailable');};
@@ -204,7 +204,7 @@ test('an identical or unproven ancestry cannot request a branch refresh', async 
   for (const status of ['identical', 'diverged']) {
     const f = fixture();
     f.comparison.status = status;
-    await assert.rejects(merge(f.github, f.context, f.appId), /current main.*rebase.*retest/i);
+    await assert.rejects(merge(f.github, f.context, f.appId), /current default branch.*rebase.*retest/i);
     assert.deepEqual(f.calls, []);
     assert.deepEqual(f.updates, []);
   }
@@ -253,3 +253,47 @@ test('merge errors with an unchanged base are never hidden as a refresh', async 
   await assert.rejects(merge(f.github, f.context, f.appId), /head changed/);
   assert.deepEqual(f.updates, []);
 });
+
+for (const branch of ['master', 'feat/shared-ui']) {
+  test(`the repository default branch ${branch} governs selection and enforcement`, async () => {
+    const f = fixture();
+    const observed = [];
+    f.pr.base.ref = branch;
+    f.github.rest.repos.get = async () => ({data: {default_branch: branch}});
+    f.github.rest.pulls.list = async args => {
+      observed.push(args.base);
+      return {data: [f.pr]};
+    };
+    f.github.rest.repos.getBranch = async args => {
+      observed.push(args.branch);
+      return {data: {commit: {sha: 'current-base'}}};
+    };
+    const request = f.github.request;
+    f.github.request = async (route, args) => {
+      if (route.endsWith('/{branch}')) observed.push(args.branch);
+      return request(route, args);
+    };
+    await merge(f.github, f.context, f.appId);
+    assert.equal(f.calls.length, 1);
+    assert.ok(observed.length >= 4);
+    assert.ok(observed.every(value => value === branch));
+  });
+}
+
+test('a main PR cannot merge when main is not the repository default', async () => {
+  const f = fixture();
+  f.github.rest.repos.get = async () => ({data: {default_branch: 'master'}});
+  await merge(f.github, f.context, f.appId);
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.updates, []);
+});
+
+for (const value of [undefined, '', null]) {
+  test(`missing default-branch metadata fails closed: ${value}`, async () => {
+    const f = fixture();
+    f.github.rest.repos.get = async () => ({data: {default_branch: value}});
+    await assert.rejects(merge(f.github, f.context, f.appId), /default branch/i);
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.updates, []);
+  });
+}
