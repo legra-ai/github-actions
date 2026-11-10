@@ -11,6 +11,31 @@ spec.loader.exec_module(release)
 
 
 class ReleasePlanTests(unittest.TestCase):
+    def test_patch_only_policy_caps_features_and_breaking_changes_after_validation(self):
+        for messages in [
+            ['fix(core): repair'], ['feat(core): add'], ['feat(core)!: replace'],
+            ['fix(core): replace\n\nBREAKING CHANGE: new representation'],
+            ['feat(core): add', 'feat(core)!: replace'],
+        ]:
+            with self.subTest(messages=messages):
+                self.assertEqual(release.next_version('0.1.0', '0.1.0', messages,
+                                                      release_bump='patch'), '0.1.1')
+        with self.assertRaises(ValueError):
+            release.next_version('0.1.0', '0.1.0', ['not conventional'], release_bump='patch')
+        self.assertIsNone(release.next_version('0.1.0', '0.1.0', ['docs(core): clarify'],
+                                             release_bump='patch'))
+
+    def test_patch_only_policy_preserves_manifest_and_candidate_authority(self):
+        self.assertEqual(release.next_version('0.2.0', '0.1.0', ['feat(core)!: replace'],
+                                              release_bump='patch'), '0.2.0')
+        self.assertEqual(release.next_version('0.1.1-alpha.1', '0.1.1-alpha.1', ['feat(core)!: replace'],
+                                              release_bump='patch'), '0.1.1-alpha.2')
+        with self.assertRaises(ValueError):
+            release.next_version('0.1.0', '0.1.1', ['feat(core): add'], release_bump='patch')
+        for value in ['', 'minor', 'typo', None]:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                release.next_version('0.1.0', '0.1.0', ['fix(core): repair'], release_bump=value)
+
     def test_prerelease_changes_advance_the_candidate_without_promoting_to_stable(self):
         for message in ['fix(core): repair', 'feat(core): add', 'feat(core)!: replace']:
             self.assertEqual(release.next_version('0.2.0-alpha.1', '0.2.0-alpha.1', [message]), '0.2.0-alpha.2')

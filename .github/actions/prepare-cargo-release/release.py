@@ -36,7 +36,9 @@ def tag_version(tag, tag_format):
     return base
 
 
-def next_version(current, latest, messages, breaking_change_bump='major'):
+def next_version(current, latest, messages, breaking_change_bump='major', release_bump='conventional'):
+    if release_bump not in ('conventional', 'patch'):
+        raise ValueError(f'Invalid release bump policy: {release_bump!r}')
     if breaking_change_bump not in ('major', 'minor'):
         raise ValueError(f'Invalid breaking-change bump policy: {breaking_change_bump!r}')
     policy = json.loads((pathlib.Path(__file__).parent.parent / 'conventional-commit/policy.json').read_text())
@@ -58,6 +60,8 @@ def next_version(current, latest, messages, breaking_change_bump='major'):
             level = max(level, 2)
         elif not re.match(r'(?:docs|style|ci)\([^\n]+\):|chore\(release\):', header):
             level = max(level, 1)
+    if release_bump == 'patch' and level:
+        level = 1
     if '-' in current:
         if level == 0:
             return None
@@ -181,7 +185,8 @@ def prepare():
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tags[tag] if tag else None, messages,
-                           os.environ.get('RELEASE_BREAKING_CHANGE_BUMP', 'major'))
+                           os.environ.get('RELEASE_BREAKING_CHANGE_BUMP', 'major'),
+                           os.environ.get('RELEASE_BUMP', 'conventional'))
     complete_plan(source, current, version, tags[tag] if tag else None,
                   manifest_kind=manifest_kind)
 

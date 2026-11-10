@@ -8,6 +8,16 @@ ROOT = Path(__file__).parents[1]
 
 
 class MaintenanceTests(unittest.TestCase):
+    def test_explicit_patch_policy_is_passed_to_both_preparation_paths(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        for step in ['plan', 'prepare']:
+            section = workflow.split(f'      - id: {step}\n', 1)[1].split('      - ', 1)[0]
+            self.assertIn('RELEASE_BUMP: ${{ inputs.release-bump }}', section)
+        self.assertIn('      release-bump:\n', workflow)
+        self.assertIn('default: conventional', workflow)
+        action = (ROOT / '.github/actions/prepare-cargo-release/action.yml').read_text()
+        self.assertIn('RELEASE_BUMP: ${{ inputs.release-bump }}', action)
+
     def test_repository_tests_with_hyphenated_names_are_executed(self):
         import subprocess
         import sys
