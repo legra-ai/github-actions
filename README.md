@@ -95,3 +95,10 @@ behavior is tested on every platform, and optional tests, doctests, Clippy and
 documentation enable all supported features. Without a declaration, all features
 remain enabled. Unknown platforms/features, inconsistent feature dependencies,
 unsupported defaults and features excluded from all three CI platforms fail.
+
+The `require-ci-success` action provides a stable required check for an existing
+validation graph. Its job must use `if: always()`, depend on every existing
+validation job, and pass `results: ${{ toJSON(needs) }}`. It accepts successful
+jobs and intentionally skipped jobs only, requires at least one success, and
+fails on cancelled, failed, unknown or malformed results. It does not replace
+the underlying tests, linting or other validation jobs. It requires no token.
