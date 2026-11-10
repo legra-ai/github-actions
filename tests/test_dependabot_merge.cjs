@@ -4,6 +4,7 @@ const merge = require('../.github/actions/merge-tested-dependabot/merge.cjs');
 
 function fixture() {
   const calls = [];
+  const updates = [];
   const run = {event: 'pull_request', conclusion: 'success', head_sha: 'tested', head_branch: 'dependabot/cargo/serde', head_repository: {full_name: 'org/crate'}};
   const pr = {number: 1, title: 'build(deps): update serde', body: 'Dependency update.', user: {login: 'dependabot[bot]'}, head: {sha: 'tested', repo: {full_name: 'org/crate'}}, base: {ref: 'main'}};
   const comparison = {status: 'ahead', merge_base_commit: {sha: 'current-base'}};
@@ -20,10 +21,10 @@ function fixture() {
     apps: {getBySlug: async () => ({data: app})},
     repos: {getBranch: async () => ({data: {commit: {sha: 'current-base'}}}),
       compareCommitsWithBasehead: async () => ({data: comparison})},
-    pulls: {list: async () => ({data: [pr]}), merge: async args => {calls.push(args); return {data: {merged: true}};}},
+    pulls: {updateBranch: async args => {updates.push(args); return {status: 202};}, list: async () => ({data: [pr]}), merge: async args => {calls.push(args); return {data: {merged: true}};}},
     actions: {createWorkflowDispatch: async args => calls.push(args)},
   }};
-  return {calls, run, pr, github, comparison, appId, viewer, app, policy, rules, context: {repo: {owner: 'org', repo: 'crate'}, payload: {workflow_run: run}}};
+  return {calls, updates, run, pr, github, comparison, appId, viewer, app, policy, rules, context: {repo: {owner: 'org', repo: 'crate'}, payload: {workflow_run: run}}};
 }
 
 test('successful CI merges only its tested head; the writer merge itself starts main CI', async () => {
@@ -65,13 +66,15 @@ test('merge refusal cannot dispatch publication', async () => {
   assert.deepEqual(f.calls, []);
 });
 
-for (const status of ['behind', 'diverged', 'identical']) {
+for (const status of ['behind', 'diverged']) {
   test(`green CI cannot merge a head whose ancestry is ${status} current main`, async () => {
     const f = fixture();
     f.comparison.status = status;
     f.comparison.merge_base_commit.sha = 'old-base';
-    await assert.rejects(merge(f.github, f.context, f.appId), /current main.*rebase.*retest/i);
+    f.comparison.behind_by = 1;
+    await merge(f.github, f.context, f.appId);
     assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.updates, [{owner: 'org', repo: 'crate', pull_number: 1, expected_head_sha: 'tested'}]);
   });
 }
 
@@ -86,8 +89,9 @@ test('main advancing during the ancestry check invalidates the green run', async
   const f = fixture();
   let reads = 0;
   f.github.rest.repos.getBranch = async () => ({data: {commit: {sha: ++reads === 1 ? 'current-base' : 'new-base'}}});
-  await assert.rejects(merge(f.github, f.context, f.appId), /main advanced.*rebase.*retest/i);
+  await merge(f.github, f.context, f.appId);
   assert.deepEqual(f.calls, []);
+  assert.equal(f.updates.length, 1);
 });
 
 for (const operation of ['getBranch', 'compareCommitsWithBasehead']) {
@@ -155,24 +159,28 @@ test('GitHub refusing a base race is propagated without retry or dispatch', asyn
   assert.deepEqual(f.calls, []);
 });
 
-test('stale CI waits for native Dependabot rebasing without issuing unsupported App commands', async () => {
+test('stale CI refreshes the branch without issuing unsupported App commands', async () => {
   const f = fixture();
   f.comparison.status = 'diverged';
+  f.comparison.behind_by = 1;
   const comments = [];
   f.github.rest.issues = {createComment: async args => {
     comments.push(args);
     throw new Error('Sorry, only users with push access can use that command.');
   }};
-  await assert.rejects(merge(f.github, f.context, f.appId), /current main.*rebase.*retest/i);
+  await merge(f.github, f.context, f.appId);
   assert.deepEqual(f.calls, []);
+  assert.equal(f.updates.length, 1);
   assert.deepEqual(comments, []);
 });
 
-test('native rebasing requires a new complete CI run before the refreshed head can merge', async () => {
+test('branch refreshing requires a new complete CI run before the refreshed head can merge', async () => {
   const f = fixture();
   f.comparison.status = 'diverged';
-  await assert.rejects(merge(f.github, f.context, f.appId), /rebase.*retest/i);
+  f.comparison.behind_by = 1;
+  await merge(f.github, f.context, f.appId);
   assert.deepEqual(f.calls, []);
+  assert.equal(f.updates.length, 1);
 
   f.pr.head.sha = 'refreshed';
   f.comparison.status = 'ahead';
@@ -190,4 +198,58 @@ test('workflow dependency updates remain supported by the merge identity', async
   f.app.permissions.workflows = 'write';
   await merge(f.github, f.context, f.appId);
   assert.equal(f.calls.length, 1);
+});
+
+test('an identical or unproven ancestry cannot request a branch refresh', async () => {
+  for (const status of ['identical', 'diverged']) {
+    const f = fixture();
+    f.comparison.status = status;
+    await assert.rejects(merge(f.github, f.context, f.appId), /current main.*rebase.*retest/i);
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.updates, []);
+  }
+});
+
+test('a failed branch refresh remains an error and cannot merge', async () => {
+  const f = fixture();
+  f.comparison.status = 'diverged';
+  f.comparison.behind_by = 1;
+  f.github.rest.pulls.updateBranch = async () => {throw new Error('merge conflict');};
+  await assert.rejects(merge(f.github, f.context, f.appId), /merge conflict/);
+  assert.deepEqual(f.calls, []);
+});
+
+test('a branch refresh must be explicitly accepted by GitHub', async () => {
+  const f = fixture();
+  f.comparison.status = 'behind';
+  f.comparison.behind_by = 1;
+  f.github.rest.pulls.updateBranch = async () => ({status: 200});
+  await assert.rejects(merge(f.github, f.context, f.appId), /refresh.*accepted/i);
+  assert.deepEqual(f.calls, []);
+});
+
+test('a writer with CI bypass cannot refresh a dependency branch', async () => {
+  const f = fixture();
+  f.comparison.status = 'behind';
+  f.comparison.behind_by = 1;
+  f.policy.current_user_can_bypass = 'always';
+  await assert.rejects(merge(f.github, f.context, f.appId));
+  assert.deepEqual(f.updates, []);
+});
+
+test('a server-side base race refreshes the branch instead of merging stale CI', async () => {
+  const f = fixture();
+  let reads = 0;
+  f.github.rest.repos.getBranch = async () => ({data: {commit: {sha: ++reads < 3 ? 'current-base' : 'new-base'}}});
+  f.github.rest.pulls.merge = async () => {throw Object.assign(new Error('base advanced'), {status: 405});};
+  await merge(f.github, f.context, f.appId);
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.updates.length, 1);
+});
+
+test('merge errors with an unchanged base are never hidden as a refresh', async () => {
+  const f = fixture();
+  f.github.rest.pulls.merge = async () => {throw Object.assign(new Error('head changed'), {status: 409});};
+  await assert.rejects(merge(f.github, f.context, f.appId), /head changed/);
+  assert.deepEqual(f.updates, []);
 });

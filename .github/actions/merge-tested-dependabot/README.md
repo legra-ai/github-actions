@@ -28,3 +28,5 @@ workflow dispatch is needed. Main still validates the prepared source before
 publishing through the sole release pipeline.
 
 Provisioning and rollout: [dedicated merge App](../../apps/dependency-merger.md).
+
+Outdated tested heads are refreshed through GitHub’s update-branch API with an expected-head guard. The App update starts a new PR validation run; the earlier green result never authorizes the refreshed head. Conflicts and unproven ancestry remain explicit failures. A main-advance race at merge time also refreshes only after GitHub refuses the stale merge and the new base is verified.

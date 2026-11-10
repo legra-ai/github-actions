@@ -21,24 +21,51 @@ module.exports = async function mergeTestedDependabot(github, context, appId) {
       owner, repo, basehead: `${baseSha}...${run.head_sha}`, per_page: 1,
     });
     if (comparison.status !== 'ahead' || comparison.merge_base_commit?.sha !== baseSha) {
+      if (['behind', 'diverged'].includes(comparison.status) &&
+          Number.isSafeInteger(comparison.behind_by) && comparison.behind_by > 0) {
+        await refreshBranch(github, owner, repo, pr.number, run.head_sha);
+        return;
+      }
       throw new Error(`PR ${pr.number} does not include current main; rebase and retest`);
     }
     const {data: latest} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
     if (latest.commit.sha !== baseSha) {
-      throw new Error(`main advanced for PR ${pr.number}; rebase and retest`);
+      await refreshBranch(github, owner, repo, pr.number, run.head_sha);
+      return;
     }
     // The identity cannot bypass strict checks. GitHub therefore rejects a
     // base advance after this check atomically when processing the merge.
 
-    const {data: result} = await github.rest.pulls.merge({
-      owner, repo, pull_number: pr.number, sha: run.head_sha, merge_method: 'squash',
-      commit_title: `${title} (#${pr.number})`, commit_message: pr.body || '',
-    });
+    let result;
+    try {
+      ({data: result} = await github.rest.pulls.merge({
+        owner, repo, pull_number: pr.number, sha: run.head_sha, merge_method: 'squash',
+        commit_title: `${title} (#${pr.number})`, commit_message: pr.body || '',
+      }));
+    } catch (error) {
+      if (![405, 409].includes(error.status)) throw error;
+      const {data: current} = await github.rest.repos.getBranch({owner, repo, branch: 'main'});
+      if (current.commit.sha === baseSha) throw error;
+      await refreshBranch(github, owner, repo, pr.number, run.head_sha);
+      return;
+    }
     if (!result.merged) throw new Error(`Merge refused for PR ${pr.number}`);
     // The writer token is an installed App, so this merge starts the push
     // pipeline on main by itself; no explicit dispatch is needed.
   }
 };
+
+async function refreshBranch(github, owner, repo, number, sha) {
+  const response = await github.rest.pulls.updateBranch({
+    owner, repo, pull_number: number, expected_head_sha: sha,
+  });
+  if (response.status !== 202) {
+    throw new Error(`Branch refresh for PR ${number} was not accepted by GitHub`);
+  }
+  // An App update triggers a new pull_request CI run. This invocation never
+  // merges the refreshed head using the earlier green result.
+  console.log(`PR ${number} refreshed; waiting for CI on its new head`);
+}
 
 async function requireStrictMergeIdentity(github, owner, repo, appId) {
   if (!Number.isSafeInteger(appId) || appId <= 0) {
