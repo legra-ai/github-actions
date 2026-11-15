@@ -55,7 +55,11 @@ class MaintenanceTests(unittest.TestCase):
     def test_pr_validation_does_not_require_publication_secrets(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('required: true\n', workflow.split('    secrets:')[1])
-        self.assertIn("if: github.ref == 'refs/heads/main'", workflow)
+        version = workflow.split('\n  version:\n', 1)[1].split('\n  publish:\n', 1)[0]
+        self.assertIn("github.ref == 'refs/heads/main'", version)
+        self.assertIn('secrets.RELEASE_WRITER_APP_KEY', version)
+        prepare = workflow.split('\n  prepare:\n', 1)[1].split('\n  test:\n', 1)[0]
+        self.assertNotIn('RELEASE_WRITER_APP', prepare)
         self.assertRegex(workflow, r'actions/create-github-app-token@[0-9a-f]{40} # v3')
         self.assertIn('cancel-in-progress: false', workflow)
 
@@ -115,7 +119,7 @@ class PolicyReferenceTests(unittest.TestCase):
     def test_reusable_workflow_ref_is_the_only_policy_pin(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('policy-revision:', workflow)
-        self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 5)
+        self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 6)
         self.assertNotIn('inputs.policy-revision', workflow)
         self.assertIn('timeout-minutes:', workflow)
 
@@ -155,7 +159,7 @@ class PolicyIsolationTests(unittest.TestCase):
 
     def test_every_policy_checkout_is_isolated_before_use(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
-        self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 5)
+        self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 6)
         self.assertIn('defaults:\n  run:\n    shell: bash', workflow)
         self.assertNotIn('uses: ./.release-policy/', workflow)
         self.assertNotIn('run: python3 .release-policy/.github/actions/', workflow)

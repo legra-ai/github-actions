@@ -69,6 +69,16 @@ license files. Daily scheduled recovery and the shared trusted title / tested
 Dependabot merge workflows belong in the caller. Remove old version/tag/manual
 publishers when adopting this workflow.
 
+Release mutation is split by revision. Planning is read-only. When a version
+commit is needed, the run of the source revision writes it only after its own
+tests and binary builds pass, and never publishes. The version commit's push starts
+the release revision's own run, and only that run publishes, once its tests pass.
+A caller's extra build jobs, such as native bindings, check out the run's own
+revision. Make the reusable workflow call `needs:` all of them, and every artifact
+is then gated on the exact revision those jobs validated. A tagged but unfinished
+release is still completed by a later run, because only a publishing run creates
+the tag.
+
 All jobs check out the prepared source revision. Binary packages build six
 platform archives before tagging/publishing, preserve original draft assets on
 recovery, and execute public downloads on Linux, macOS and Windows. Package tests

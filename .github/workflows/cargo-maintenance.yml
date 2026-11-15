@@ -38,9 +38,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
-      revision: ${{ steps.prepare.outputs.revision }}
-      version: ${{ steps.manifest.outputs.version }}
-      release: ${{ steps.prepare.outputs.release }}
+      revision: ${{ steps.plan.outputs.revision }}
+      version: ${{ steps.decision.outputs.version }}
+      release: ${{ steps.plan.outputs.release }}
+      write-version: ${{ steps.decision.outputs.write-version }}
+      publish: ${{ steps.decision.outputs.publish }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -76,17 +78,12 @@ jobs:
           if tomllib.loads(Path('Cargo.toml').read_text())['package']['name'] != os.environ['RELEASE_CRATE']:
               raise ValueError('Maintenance package differs from manifest')
           PY
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
-        if: github.ref == 'refs/heads/main'
-        id: writer
-        with:
-          app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
-          private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-version-info@1.0.13
+      # Read-only. The version commit is written by `version` only after this
+      # run's validation passed; publication happens only in the run whose own
+      # revision is the release revision (see release_decision.py).
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,23 +91,15 @@ jobs:
           RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
           RELEASE_BUMP: ${{ inputs.release-bump }}
         run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
-      - id: prepare
+      - id: decision
         env:
-          GH_TOKEN: ${{ steps.writer.outputs.token || github.token }}
-          RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
-          RELEASE_BUMP: ${{ inputs.release-bump }}
-        run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
-      - id: manifest
-        env:
-          RELEASE_REVISION: ${{ steps.prepare.outputs.revision }}
+          RELEASE_REVISION: ${{ steps.plan.outputs.revision }}
+          RELEASE_PLANNED: ${{ steps.plan.outputs.release }}
+          RELEASE_PLANNED_VERSION: ${{ steps.plan.outputs.version }}
+          RUN_REVISION: ${{ github.sha }}
         run: |
           git fetch origin "$RELEASE_REVISION" || exit 1
-          python3 - <<'PY'
-          import os, subprocess, tomllib
-          raw = subprocess.check_output(['git', 'show', os.environ['RELEASE_REVISION'] + ':Cargo.toml'], text=True)
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('version=' + tomllib.loads(raw)['package']['version'] + '\n')
-          PY
+          python3 "$POLICY_ROOT/.github/scripts/release_decision.py"
 
   test:
     needs: prepare
@@ -202,7 +191,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
           RELEASE_TARGET: ${{ matrix.target }}
-          RELEASE_PUBLICATION: ${{ needs.prepare.outputs.release }}
+          RELEASE_PUBLICATION: ${{ needs.prepare.outputs.publish }}
         run: python3 "$POLICY_ROOT/.github/actions/build-tested-binary/binary.py" build
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -210,10 +199,52 @@ jobs:
           path: binary-artifacts/*.zip
           if-no-files-found: error
 
+  version:
+    # Record the version commit only after this run validated its source. The
+    # commit's push starts the release revision's own run, which validates that
+    # exact revision together with every caller job and alone may publish it.
+    needs: [prepare, test, binary]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && needs.prepare.outputs.write-version == 'true' &&
+      needs.test.result == 'success' &&
+      (needs.binary.result == 'success' || needs.binary.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.revision }}
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: legra-ai/github-actions
+          ref: ${{ job.workflow_sha }}
+          path: .release-policy
+          persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        id: writer
+        with:
+          app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-version-info@1.0.13
+      - id: prepare
+        env:
+          GH_TOKEN: ${{ steps.writer.outputs.token }}
+          RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
+          RELEASE_BUMP: ${{ inputs.release-bump }}
+        run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
+
   publish:
     needs: [prepare, test, binary]
     if: >-
-      always() && needs.prepare.outputs.release == 'true' && needs.test.result == 'success' &&
+      always() && needs.prepare.outputs.publish == 'true' && needs.test.result == 'success' &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
