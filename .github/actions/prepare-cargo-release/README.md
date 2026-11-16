@@ -8,7 +8,12 @@ use one concurrency group with `cancel-in-progress: false`.
 The action compares all commits since the latest reachable version tag.
 Fixes and dependency changes produce a patch; `feat` a minor;
 `!` or `BREAKING CHANGE` a major. Documentation, style and CI-only changes do not
-release. A higher manifest version is respected. No tag baseline uses the manifest.
+release. A higher stable manifest version is respected only while it covers every
+commit since the latest published tag: the plan is always recomputed from that tag,
+and when those commits need more than the manifest (for example an unpublished
+`chore(release): prepare X.Y.Z` followed by a feature or breaking change), the
+higher recomputed version wins. A pending version is never reused for commits it
+did not plan. No tag baseline uses the manifest.
 Every considered commit must match the scoped Conventional Commit policy shared
 with PR-title and merge-time validation. Invalid headers fail, including during
 manual bumps and initial releases; no unknown-message patch fallback exists.
@@ -58,34 +63,49 @@ tag spelling with `tag-format: pep440` or `semver`; neither is inferred. Epochs,
 post/dev/local versions, dynamic or malformed versions and unknown manifest kinds
 are rejected. There is no manifest fallback, dummy Cargo file or second publisher.
 
-## Major release approval
+## Release approval
 
-A major-number increase never writes a version commit or authorizes publication
-without an explicit review by `jgeluk`. This includes manually raised manifests,
-initial releases with a nonzero major number, and retries of unfinished major
-releases. General implementation, merge, or release approval does not suffice.
+Patch releases are fully automatic. Every **minor** and **major** release never
+writes a version commit or authorizes publication without an explicit review by
+`jgeluk`. The bump level is classified against the latest published tag (the
+`bump-level` output: `none`, `patch`, `minor` or `major`). This includes manually
+raised manifests, initial releases (`0.1.0` is a minor, `1.0.0` a major), the first
+prerelease of a new minor or major series, promotion of a prerelease to its stable
+`X.Y.0` / `X.0.0`, and retries of unfinished releases. Candidate increments within
+one series (`1.3.0-rc.1` to `1.3.0-rc.2`) are patch-level. General implementation,
+merge, or release approval does not suffice.
 
 Call this action first with `plan-only: 'true'` using a read-only token. The
-`major-approval-required` output identifies plans needing review. This mode
-returns the proposed version and source but performs no version write.
+`approval-required` output identifies plans needing review, and `bump-level`
+names the level. This mode returns the proposed version and source but performs
+no version write.
 
 For those plans, run a job in a protected GitHub environment named
-`major-release`, configured with `jgeluk` as required reviewer and administrator
-bypass disabled. Name the job with the proposed version and show the workflow
-source SHA. For a uv project, VERSION uses the Python manifest spelling shown by the plan.
-The reviewer must enter this exact approval comment:
+`release-approval`, configured with `jgeluk` as required reviewer and administrator
+bypass disabled. Name the job with the level and proposed version and show the
+workflow source SHA. For a uv project, VERSION uses the Python manifest spelling
+shown by the plan. The reviewer must enter this exact approval comment, where
+LEVEL is `minor` or `major`:
 
 ```text
-Approve major release VERSION from WORKFLOW_SOURCE_SHA
+Approve LEVEL release VERSION from WORKFLOW_SOURCE_SHA
 ```
 
-Run normal preparation only after that job succeeds (or is skipped for a
-non-major plan). The action reads GitHub's review history for the current run
-and checks the human identity, environment, exact version, and workflow source.
-It does not accept a Boolean approval input. The calling workflow needs
-`actions: read` for this lookup. Do not approve the environment through an agent
-using the owner's credentials without the user's explicit approval of that
-specific major version and source.
+Run normal preparation only after that job succeeds (or is skipped because the
+plan needs no approval). The action reads GitHub's review history for the current
+run and checks the human identity, environment, exact level, exact version, and
+workflow source; any rejected review in the run blocks it. It does not accept a
+Boolean approval input. The calling workflow needs `actions: read` for this
+lookup. Do not approve the environment through an agent using the owner's
+credentials without the user's explicit approval of that specific release and
+source.
+
+The shared `cargo-maintenance.yml` workflow applies the same gate itself: its
+`approval` job runs in the caller's `release-approval` environment and verifies
+the review before both the version commit and publication. Callers must grant
+`actions: read`. Because maintenance writes the version commit in one run and
+publishes from that commit's own run, each of those runs asks for its own
+review naming its own source SHA.
 
 Keep the existing non-cancelling main concurrency group. If main advances
 before preparation, the existing expected-head checks prevent stale publication.
@@ -101,8 +121,9 @@ features remain minors, and prereleases stay within their candidate series.
 Only `major` and `minor` are valid settings; invalid policies fail.
 
 The default remains `major` for repositories without that explicit policy.
-The explicit major approval guard still applies to any actual major-number
-increase, including manual manifests and initial releases. This option does not
+Breaking changes planned as minors under this policy still require the explicit
+minor release approval, as does any actual major-number increase, including
+manual manifests and initial releases. This option does not
 authorize renumbering published versions or lowering the manifest behind a tag.
 
 ## Explicit patch-only releases
@@ -116,6 +137,6 @@ breaking changes. Retain accurate breaking-change markers. Documentation, style
 and CI changes alone still do not trigger publication.
 
 This policy does not override a deliberately higher manifest version, accept a
-manifest behind its latest tag, promote a prerelease candidate, or bypass major
-release approval. It changes version selection only, never the tested-revision,
+manifest behind its latest tag, promote a prerelease candidate, or bypass minor or
+major release approval. It changes version selection only, never the tested-revision,
 publication, recovery or signing gates.

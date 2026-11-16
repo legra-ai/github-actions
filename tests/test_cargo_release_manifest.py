@@ -94,7 +94,8 @@ class CargoManifestTests(unittest.TestCase):
                     release.prepare()
                 output.assert_called_once_with(revision=source, release='true',
                                                version='0.2.0-alpha.20',
-                                               major_approval_required='false')
+                                               bump_level='patch',
+                                               approval_required='false')
                 writer.assert_not_called()
                 self.assertEqual(Path('Cargo.toml').read_text(), MIXED)
                 self.assertEqual(git('status', '--porcelain'), '')

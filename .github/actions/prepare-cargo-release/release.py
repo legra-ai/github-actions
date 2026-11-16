@@ -7,6 +7,7 @@ import pathlib
 import re
 import runpy
 import subprocess
+import sys
 
 ReleaseManifest = runpy.run_path(str(pathlib.Path(__file__).resolve().parents[1] / 'release_manifest.py'))['ReleaseManifest']
 
@@ -47,7 +48,17 @@ def next_version(current, latest, messages, breaking_change_bump='major', releas
         if not re.fullmatch(policy['header_pattern'], header):
             raise ValueError(f'Conventional Commit required: {header!r}')
     current_tuple = version_tuple(current)
-    if latest is None or current_tuple > version_tuple(latest):
+    if latest is None:
+        return current
+    if current_tuple > version_tuple(latest):
+        if '-' in current:
+            return current
+        # A higher stable manifest is either a deliberate bump or an unpublished
+        # pending version. Either way it must cover every commit since the last
+        # published tag; never reuse it for commits it did not plan.
+        planned = next_version(latest, latest, messages, breaking_change_bump, release_bump)
+        if planned is not None and version_tuple(planned) > current_tuple:
+            return planned
         return current
     if current_tuple < version_tuple(latest):
         raise ValueError('Manifest version is behind the latest release tag')
@@ -92,32 +103,54 @@ def release_pending(tag):
     raise RuntimeError(result.stderr)
 
 
-def require_major_approval(version):
-    """Accept only the owner's explicit review of this version and workflow source."""
+APPROVAL_ENVIRONMENT = 'release-approval'
+APPROVAL_LEVELS = ('minor', 'major')
+
+
+def bump_level(version, latest):
+    """Classify a planned release against its published baseline: none, patch, minor or major."""
+    if version is None:
+        return 'none'
+    candidate = version_tuple(version)
+    baseline = version_tuple(latest) if latest is not None else (0, 0, 0, 3, 0)
+    # Promoting a prerelease baseline to its stable X.0.0 / X.Y.0 is itself that release.
+    promotion = candidate[3] == 3 and baseline[3] < 3
+    if candidate[0] > baseline[0] or (promotion and candidate[0] > 0 and candidate[1:3] == (0, 0)):
+        return 'major'
+    if candidate[:2] > baseline[:2] or (promotion and candidate[1] > 0 and candidate[2] == 0):
+        return 'minor'
+    return 'patch'
+
+
+def require_release_approval(level, version):
+    """Accept only the owner's explicit review of this level, version and workflow source."""
+    if level not in APPROVAL_LEVELS:
+        raise ValueError(f'No approval exists for bump level {level!r}')
     repository = os.environ['GITHUB_REPOSITORY']
     run_id = os.environ['GITHUB_RUN_ID']
     source = os.environ['GITHUB_SHA']
     if not re.fullmatch(r'[0-9a-f]{40}', source) or not run_id.isdecimal():
         raise ValueError('Invalid workflow approval identity')
-    comment = f'Approve major release {version} from {source}'
+    comment = approval_comment(level, version, source)
     review_environment = dict(os.environ, GH_TOKEN=os.environ['RELEASE_APPROVAL_TOKEN'])
     reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals',
                                env=review_environment))
     if any(review['state'] == 'rejected'
-           and any(environment['name'] == 'major-release'
+           and any(environment['name'] == APPROVAL_ENVIRONMENT
                    for environment in review['environments'])
            for review in reviews):
-        raise ValueError('Major release requires explicit approval; this run has a rejected review')
+        raise ValueError(f'{level.capitalize()} release requires explicit approval; '
+                         f'this run has a rejected review')
     for review in reviews:
         if (review['state'] == 'approved'
                 and review['user']['login'] == 'jgeluk'
                 and review['user']['type'] == 'User'
-                and any(environment['name'] == 'major-release'
+                and any(environment['name'] == APPROVAL_ENVIRONMENT
                         for environment in review['environments'])
                 and review['comment'] == comment):
             return
-    raise ValueError(f'Major release requires explicit approval by jgeluk in the '
-                     f'major-release environment with comment: {comment}')
+    raise ValueError(f'{level.capitalize()} release requires explicit approval by jgeluk in the '
+                     f'{APPROVAL_ENVIRONMENT} environment with comment: {comment}')
 
 
 def complete_plan(source, current, version, latest, manifest_kind='cargo'):
@@ -125,17 +158,15 @@ def complete_plan(source, current, version, latest, manifest_kind='cargo'):
     manifest = ReleaseManifest(manifest_kind)
     target = manifest.manifest_version(version) if version is not None else None
     current_manifest = manifest.manifest_version(current)
-    candidate = version_tuple(version) if version is not None else None
-    baseline = version_tuple(latest) if latest is not None else (0, 0, 0, 3, 0)
-    major = candidate is not None and (
-        candidate[0] > baseline[0]
-        or (candidate[0] > 0 and candidate[1:4] == (0, 0, 3) and baseline[3] < 3))
+    level = bump_level(version, latest)
+    approval = level in APPROVAL_LEVELS
     if os.environ.get('RELEASE_PLAN_ONLY', 'false') == 'true':
         output(revision=source, release=str(version is not None).lower(),
-               version=target or current_manifest, major_approval_required=str(major).lower())
+               version=target or current_manifest, bump_level=level,
+               approval_required=str(approval).lower())
         return
-    if major:
-        require_major_approval(target)
+    if approval:
+        require_release_approval(level, target)
     if version is None:
         output(revision=source, release='false', version=current_manifest)
     elif version == current:
@@ -228,5 +259,30 @@ def write_release_commit(source, version, manifest_kind='cargo'):
         raise RuntimeError(response['errors'])
     return response['data']['createCommitOnBranch']['commit']['oid']
 
+def approval_comment(level, version, source):
+    return f'Approve {level} release {version} from {source}'
+
+
+def write_summary():
+    """Show the read-only proposal and, for minor or major, the exact approval comment."""
+    version = os.environ['PROPOSED_VERSION']
+    level = os.environ['BUMP_LEVEL']
+    with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+        summary.write(f'Proposed version: {version} ({level})\n\n')
+        if os.environ['APPROVAL_REQUIRED'] == 'true':
+            summary.write(f'This {level} release requires your explicit review in the '
+                          f'{APPROVAL_ENVIRONMENT} environment. Use this exact approval comment:\n\n')
+            summary.write(approval_comment(level, version, os.environ['WORKFLOW_SOURCE']) + '\n')
+
+
+def verify_approval():
+    """Check the owner's review from inside the approval-environment job itself."""
+    require_release_approval(os.environ['RELEASE_BUMP_LEVEL'], os.environ['RELEASE_VERSION'])
+
+
+COMMANDS = {'prepare': prepare, 'summary': write_summary, 'verify-approval': verify_approval}
+
 if __name__ == '__main__':
-    prepare()
+    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] not in COMMANDS):
+        raise SystemExit(f'usage: release.py [{"|".join(COMMANDS)}]')
+    COMMANDS[sys.argv[1] if len(sys.argv) == 2 else 'prepare']()

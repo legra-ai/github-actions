@@ -40,6 +40,9 @@ jobs:
     outputs:
       revision: ${{ steps.plan.outputs.revision }}
       version: ${{ steps.decision.outputs.version }}
+      planned-version: ${{ steps.plan.outputs.version }}
+      approval-required: ${{ steps.plan.outputs.approval_required }}
+      bump-level: ${{ steps.plan.outputs.bump_level }}
       release: ${{ steps.plan.outputs.release }}
       write-version: ${{ steps.decision.outputs.write-version }}
       publish: ${{ steps.decision.outputs.publish }}
@@ -100,6 +103,45 @@ jobs:
         run: |
           git fetch origin "$RELEASE_REVISION" || exit 1
           python3 "$POLICY_ROOT/.github/scripts/release_decision.py"
+      - name: Show release proposal
+        env:
+          PROPOSED_VERSION: ${{ steps.plan.outputs.version }}
+          BUMP_LEVEL: ${{ steps.plan.outputs.bump_level }}
+          APPROVAL_REQUIRED: ${{ steps.plan.outputs.approval_required }}
+          WORKFLOW_SOURCE: ${{ github.sha }}
+        run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py" summary
+
+  approval:
+    # Minor and major releases wait for the owner's review of this exact
+    # level, version and source in the caller's `release-approval` environment.
+    # Patch releases never reach this job.
+    name: Approve ${{ needs.prepare.outputs.bump-level }} release ${{ needs.prepare.outputs.planned-version }}
+    needs: prepare
+    if: >-
+      github.ref == 'refs/heads/main' && needs.prepare.outputs.approval-required == 'true' &&
+      (needs.prepare.outputs.write-version == 'true' || needs.prepare.outputs.publish == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release-approval
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: legra-ai/github-actions
+          ref: ${{ job.workflow_sha }}
+          path: .release-policy
+          persist-credentials: false
+      - name: Isolate executable policy from packaged source
+        shell: bash
+        run: python3 .release-policy/.github/scripts/isolate_policy.py
+      - name: Verify the exact owner approval
+        env:
+          RELEASE_APPROVAL_TOKEN: ${{ github.token }}
+          RELEASE_BUMP_LEVEL: ${{ needs.prepare.outputs.bump-level }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.planned-version }}
+        run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py" verify-approval
 
   test:
     needs: prepare
@@ -203,13 +245,17 @@ jobs:
     # Record the version commit only after this run validated its source. The
     # commit's push starts the release revision's own run, which validates that
     # exact revision together with every caller job and alone may publish it.
-    needs: [prepare, test, binary]
+    needs: [prepare, approval, test, binary]
     if: >-
       always() && github.ref == 'refs/heads/main' && needs.prepare.outputs.write-version == 'true' &&
+      (needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success') &&
       needs.test.result == 'success' &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -237,14 +283,16 @@ jobs:
       - id: prepare
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token }}
+          RELEASE_APPROVAL_TOKEN: ${{ github.token }}
           RELEASE_BREAKING_CHANGE_BUMP: ${{ inputs.breaking-change-bump }}
           RELEASE_BUMP: ${{ inputs.release-bump }}
         run: python3 "$POLICY_ROOT/.github/actions/prepare-cargo-release/release.py"
 
   publish:
-    needs: [prepare, test, binary]
+    needs: [prepare, approval, test, binary]
     if: >-
       always() && needs.prepare.outputs.publish == 'true' && needs.test.result == 'success' &&
+      (needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success') &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30

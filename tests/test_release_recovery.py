@@ -67,8 +67,11 @@ class RecoveryTests(unittest.TestCase):
         self.git('-c', 'tag.gpgsign=false', 'tag', 'v1.3.0a2')
         self.git('commit', '--allow-empty', '-m', 'feat(core): newer feature')
         result = subprocess.CompletedProcess([], 0, '{"draft": true}', '')
-        with patch.dict(os.environ, RELEASE_TAG_FORMAT='pep440'), self.mock_api(result), patch.object(release, 'output') as output:
+        with patch.dict(os.environ, RELEASE_TAG_FORMAT='pep440'), self.mock_api(result), \
+                patch.object(release, 'require_release_approval') as approval, \
+                patch.object(release, 'output') as output:
             release.prepare()
+        approval.assert_called_once_with('minor', '1.3.0-alpha.2')
         output.assert_called_once_with(revision=original, release='true', version='1.3.0-alpha.2')
 
     def test_pending_release_is_resumed_before_later_changes(self):
@@ -95,15 +98,15 @@ class RecoveryTests(unittest.TestCase):
             release.prepare()
         output.assert_called_once_with(revision=current, release='false', version='1.2.3')
 
-    def test_preproduction_policy_plans_a_minor_without_requesting_major_review(self):
+    def test_preproduction_policy_plans_a_minor_that_still_requires_minor_review(self):
         self.git('commit', '--allow-empty', '-m', 'feat(core)!: replace format')
         result = subprocess.CompletedProcess([], 0, '{"draft": false}', '')
         with self.mock_api(result), patch.dict(os.environ, RELEASE_BREAKING_CHANGE_BUMP='minor'), \
-                patch.object(release, 'require_major_approval') as approval, \
+                patch.object(release, 'require_release_approval') as approval, \
                 patch.object(release, 'write_release_commit', return_value='prepared') as write, \
                 patch.object(release, 'output') as output:
             release.prepare()
-        approval.assert_not_called()
+        approval.assert_called_once_with('minor', '1.3.0')
         write.assert_called_once_with(self.git('rev-parse', 'HEAD'), '1.3.0')
         output.assert_called_once_with(revision='prepared', release='true', version='1.3.0')
 
@@ -129,6 +132,18 @@ class RecoveryTests(unittest.TestCase):
                            RELEASE_APPROVAL_TOKEN='read-only'), \
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.prepare()
+
+    def test_unpublished_pending_version_never_absorbs_later_unplanned_commits(self):
+        pathlib.Path('Cargo.toml').write_text('[package]\nname="example"\nversion="1.2.4"\n')
+        self.git('add', 'Cargo.toml')
+        self.git('commit', '-m', 'chore(release): prepare 1.2.4')
+        self.git('commit', '--allow-empty', '-m', 'feat(model)!: replace representation')
+        source = self.git('rev-parse', 'HEAD')
+        with patch.dict(os.environ, RELEASE_BREAKING_CHANGE_BUMP='minor'), \
+                patch.object(release, 'release_pending', return_value=False), \
+                patch.object(release, 'complete_plan') as complete:
+            release.prepare()
+        complete.assert_called_once_with(source, '1.2.4', '1.3.0', '1.2.3', manifest_kind='cargo')
 
     def test_api_failure_is_not_an_absent_release(self):
         self.git('commit', '--allow-empty', '-m', 'docs(readme): clarify')

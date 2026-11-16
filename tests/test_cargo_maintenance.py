@@ -52,6 +52,23 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIn(expected, action)
         self.assertNotIn('@main', action)
 
+    def test_minor_and_major_writes_and_publication_wait_for_owner_approval(self):
+        workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
+        approval = workflow.split('\n  approval:\n', 1)[1].split('\n  test:\n', 1)[0]
+        self.assertIn('environment: release-approval', approval)
+        self.assertIn("needs.prepare.outputs.approval-required == 'true'", approval)
+        self.assertIn('release.py" verify-approval', approval)
+        self.assertIn('actions: read', approval)
+        gate = "(needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success')"
+        for job, following in [('version', 'publish'), ('publish', 'installed-binary')]:
+            section = workflow.split(f'\n  {job}:\n', 1)[1].split(f'\n  {following}:\n', 1)[0]
+            with self.subTest(job=job):
+                self.assertIn('needs: [prepare, approval, test, binary]', section)
+                self.assertIn(gate, section)
+        version = workflow.split('\n  version:\n', 1)[1].split('\n  publish:\n', 1)[0]
+        self.assertIn('RELEASE_APPROVAL_TOKEN: ${{ github.token }}', version)
+        self.assertNotIn('major-release', workflow)
+
     def test_pr_validation_does_not_require_publication_secrets(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('required: true\n', workflow.split('    secrets:')[1])
@@ -65,7 +82,7 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_publication_waits_for_tests_and_all_binary_builds(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
-        self.assertIn('needs: [prepare, test, binary]', workflow)
+        self.assertIn('needs: [prepare, approval, test, binary]', workflow)
         self.assertIn("needs.binary.result == 'skipped'", workflow)
         self.assertIn('draft: true', workflow)
         self.assertIn('ref: ${{ needs.prepare.outputs.revision }}', workflow)
@@ -119,7 +136,7 @@ class PolicyReferenceTests(unittest.TestCase):
     def test_reusable_workflow_ref_is_the_only_policy_pin(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertNotIn('policy-revision:', workflow)
-        self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 6)
+        self.assertEqual(workflow.count('ref: ${{ job.workflow_sha }}'), 7)
         self.assertNotIn('inputs.policy-revision', workflow)
         self.assertIn('timeout-minutes:', workflow)
 
@@ -159,7 +176,7 @@ class PolicyIsolationTests(unittest.TestCase):
 
     def test_every_policy_checkout_is_isolated_before_use(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
-        self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 6)
+        self.assertEqual(workflow.count('run: python3 .release-policy/.github/scripts/isolate_policy.py'), 7)
         self.assertIn('defaults:\n  run:\n    shell: bash', workflow)
         self.assertNotIn('uses: ./.release-policy/', workflow)
         self.assertNotIn('run: python3 .release-policy/.github/actions/', workflow)

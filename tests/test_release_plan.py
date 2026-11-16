@@ -95,6 +95,22 @@ class ReleasePlanTests(unittest.TestCase):
     def test_unreleased_manual_bump_is_preserved(self):
         self.assertEqual(release.next_version('0.2.0', '0.1.1', ['chore(release): prepare']), '0.2.0')
 
+    def test_unpublished_pending_version_is_replanned_from_the_last_published_tag(self):
+        # shacl-structural-model: `chore(release): prepare 6.4.6` never published;
+        # a later breaking change must not be released under the pending 6.4.6.
+        messages = ['feat(model)!: replace representation', 'chore(release): prepare 6.4.6']
+        self.assertEqual(release.next_version('6.4.6', '6.4.5', messages,
+                                              breaking_change_bump='minor'), '6.5.0')
+        self.assertEqual(release.next_version('6.4.6', '6.4.5', messages), '7.0.0')
+        self.assertEqual(release.next_version('6.4.6', '6.4.5',
+                                              ['feat(model): add', 'chore(release): prepare 6.4.6']),
+                         '6.5.0')
+
+    def test_pending_version_is_kept_only_when_it_covers_every_unpublished_commit(self):
+        self.assertEqual(release.next_version('6.4.6', '6.4.5',
+                                              ['fix(model): repair', 'chore(release): prepare 6.4.6']),
+                         '6.4.6')
+
     def test_published_release_commit_does_not_loop(self):
         self.assertIsNone(release.next_version('0.1.2', '0.1.2', []))
 
