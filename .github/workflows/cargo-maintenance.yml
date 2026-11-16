@@ -114,29 +114,33 @@ jobs:
   approval:
     # Minor and major releases wait for the owner's review of this exact
     # level, version and source in the caller's `release-approval` environment.
-    # Patch releases never reach this job.
-    name: Approve ${{ needs.prepare.outputs.bump-level }} release ${{ needs.prepare.outputs.planned-version }}
+    # The job always runs so that no downstream job inherits a skipped
+    # ancestor; patch releases and non-releasing runs select no environment.
+    name: Release approval (${{ needs.prepare.outputs.bump-level || 'none' }} ${{ needs.prepare.outputs.planned-version }})
     needs: prepare
-    if: >-
-      github.ref == 'refs/heads/main' && needs.prepare.outputs.approval-required == 'true' &&
-      (needs.prepare.outputs.write-version == 'true' || needs.prepare.outputs.publish == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment: release-approval
+    environment: >-
+      ${{ github.ref == 'refs/heads/main' && needs.prepare.outputs.approval-required == 'true' &&
+      (needs.prepare.outputs.write-version == 'true' || needs.prepare.outputs.publish == 'true') &&
+      'release-approval' || '' }}
     permissions:
       actions: read
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: needs.prepare.outputs.approval-required == 'true'
         with:
           repository: legra-ai/github-actions
           ref: ${{ job.workflow_sha }}
           path: .release-policy
           persist-credentials: false
       - name: Isolate executable policy from packaged source
+        if: needs.prepare.outputs.approval-required == 'true'
         shell: bash
         run: python3 .release-policy/.github/scripts/isolate_policy.py
       - name: Verify the exact owner approval
+        if: needs.prepare.outputs.approval-required == 'true'
         env:
           RELEASE_APPROVAL_TOKEN: ${{ github.token }}
           RELEASE_BUMP_LEVEL: ${{ needs.prepare.outputs.bump-level }}
@@ -248,7 +252,7 @@ jobs:
     needs: [prepare, approval, test, binary]
     if: >-
       always() && github.ref == 'refs/heads/main' && needs.prepare.outputs.write-version == 'true' &&
-      (needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success') &&
+      needs.approval.result == 'success' &&
       needs.test.result == 'success' &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
@@ -292,7 +296,7 @@ jobs:
     needs: [prepare, approval, test, binary]
     if: >-
       always() && needs.prepare.outputs.publish == 'true' && needs.test.result == 'success' &&
-      (needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success') &&
+      needs.approval.result == 'success' &&
       (needs.binary.result == 'success' || needs.binary.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30

@@ -81,7 +81,9 @@ names the level. This mode returns the proposed version and source but performs
 no version write.
 
 For those plans, run a job in a protected GitHub environment named
-`release-approval`, configured with `jgeluk` as required reviewer and administrator
+`release-approval` (select it conditionally, for example
+`environment: ${{ needs.plan.outputs.approval-required == 'true' && 'release-approval' || '' }}`,
+so the job always runs and no descendant inherits a skipped ancestor), configured with `jgeluk` as required reviewer and administrator
 bypass disabled. Name the job with the level and proposed version and show the
 workflow source SHA. For a uv project, VERSION uses the Python manifest spelling
 shown by the plan. The reviewer must enter this exact approval comment, where

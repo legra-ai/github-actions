@@ -55,11 +55,14 @@ class MaintenanceTests(unittest.TestCase):
     def test_minor_and_major_writes_and_publication_wait_for_owner_approval(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         approval = workflow.split('\n  approval:\n', 1)[1].split('\n  test:\n', 1)[0]
-        self.assertIn('environment: release-approval', approval)
-        self.assertIn("needs.prepare.outputs.approval-required == 'true'", approval)
-        self.assertIn('release.py" verify-approval', approval)
+        self.assertIn("'release-approval' || '' }}", approval)
+        self.assertIn("needs.prepare.outputs.approval-required == 'true' &&", approval)
+        self.assertNotIn('\n    if:', approval, 'a skipped approval job would skip every descendant')
+        verify = approval.split('- name: Verify the exact owner approval\n', 1)[1]
+        self.assertIn("if: needs.prepare.outputs.approval-required == 'true'", verify)
+        self.assertIn('release.py" verify-approval', verify)
         self.assertIn('actions: read', approval)
-        gate = "(needs.prepare.outputs.approval-required != 'true' || needs.approval.result == 'success')"
+        gate = "needs.approval.result == 'success'"
         for job, following in [('version', 'publish'), ('publish', 'installed-binary')]:
             section = workflow.split(f'\n  {job}:\n', 1)[1].split(f'\n  {following}:\n', 1)[0]
             with self.subTest(job=job):
