@@ -190,6 +190,16 @@
       "recovery_asset": null
     },
     {
+      "repository": "legra-ai/status-machina",
+      "workflow": "ci.yml",
+      "assignee": "jgeluk",
+      "registries": {
+        "crates": "status-machina"
+      },
+      "cli_assets": [],
+      "recovery_asset": null
+    },
+    {
       "repository": "legra-ai/tasktree",
       "workflow": "ci.yml",
       "assignee": "jgeluk",
