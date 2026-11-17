@@ -79,6 +79,19 @@ is then gated on the exact revision those jobs validated. A tagged but unfinishe
 release is still completed by a later run, because only a publishing run creates
 the tag.
 
+A caller that also publishes language packages (npm, PyPI) builds and tests them
+in jobs the reusable call `needs:`, then bundles them as one artifact holding
+`release-packages.zip` (a `manifest.json` with `version`, `revision` and a
+filename-to-SHA-256 `files` object, plus the packages). Pass its artifact name as
+`release-packages` and `complete-release: false`. The publish job attaches the
+bundle to the draft release before crates.io, only when its manifest names the
+release revision; a resumed release keeps the original asset and verifies it, so
+recovery never publishes packages tested at another revision. The workflow outputs
+`publish`, `version` and `revision`; the caller's own publishing job runs when
+`publish` is `true`, publishes the missing packages from the preserved asset,
+verifies every registry, and only then publishes the draft. Until then a later run
+resumes the release at its tag.
+
 Minor and major releases wait for the owner's review in the caller's
 `release-approval` environment (required reviewer `jgeluk`, no administrator
 bypass) before both the version commit and publication; patch releases are fully
