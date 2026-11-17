@@ -18,6 +18,29 @@ on:
         description: Version increment for breaking changes (major or minor)
         default: major
         type: string
+      release-packages:
+        description: >-
+          Caller artifact holding release-packages.zip, the run's tested language packages with
+          their manifest. It is preserved on the draft release before any registry publication,
+          and a resumed release keeps the original asset.
+        default: ''
+        type: string
+      complete-release:
+        description: >-
+          Publish the draft release once crates.io is verified. A caller that publishes further
+          registries passes false and completes the release after verifying all of them.
+        default: true
+        type: boolean
+    outputs:
+      publish:
+        description: true when this run publishes the release revision
+        value: ${{ jobs.prepare.outputs.publish }}
+      version:
+        description: Manifest version of the release revision
+        value: ${{ jobs.prepare.outputs.version }}
+      revision:
+        description: Complete release revision
+        value: ${{ jobs.prepare.outputs.revision }}
     secrets:
       CRATES_IO_TOKEN:
         required: false
@@ -351,6 +374,19 @@ jobs:
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
           RELEASE_TARGET: x86_64-unknown-linux-gnu
         run: python3 "$POLICY_ROOT/.github/actions/build-tested-binary/binary.py" upload
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        if: inputs.release-packages != ''
+        with:
+          name: ${{ inputs.release-packages }}
+          path: ${{ runner.temp }}/release-packages
+      - name: Preserve the tested release packages before any registry publication
+        if: inputs.release-packages != ''
+        env:
+          GH_TOKEN: ${{ steps.writer.outputs.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
+          RELEASE_PACKAGES: ${{ runner.temp }}/release-packages/release-packages.zip
+        run: python3 "$POLICY_ROOT/.github/actions/preserve-release-packages/preserve.py"
       - name: Publish only committed package inputs
         shell: bash
         env:
@@ -366,6 +402,7 @@ jobs:
           RELEASE_REVISION: ${{ needs.prepare.outputs.revision }}
         run: python3 "$POLICY_ROOT/.github/actions/test-cargo-package/package_test.py"
       - name: Complete verified release
+        if: inputs.complete-release
         env:
           GH_TOKEN: ${{ steps.writer.outputs.token }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
