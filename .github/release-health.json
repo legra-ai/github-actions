@@ -194,10 +194,12 @@
       "workflow": "ci.yml",
       "assignee": "jgeluk",
       "registries": {
-        "crates": "status-machina"
+        "crates": "status-machina",
+        "npm": "@legra-ai/status-machina",
+        "pypi": "status-machina"
       },
       "cli_assets": [],
-      "recovery_asset": null
+      "recovery_asset": "release-packages.zip"
     },
     {
       "repository": "legra-ai/tasktree",
