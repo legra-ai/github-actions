@@ -20,9 +20,12 @@ inputs:
     description: Explicit release manifest backend (cargo or uv)
     default: cargo
 outputs:
-  major-approval-required:
-    description: Whether the read-only plan needs an explicit major-release environment review
-    value: ${{ steps.prepare.outputs.major_approval_required }}
+  approval-required:
+    description: Whether the read-only plan needs an explicit release-approval environment review (every minor and major release)
+    value: ${{ steps.prepare.outputs.approval_required }}
+  bump-level:
+    description: Read-only plan classification of the release against the last published tag (none, patch, minor or major)
+    value: ${{ steps.prepare.outputs.bump_level }}
   revision:
     description: Exact revision to test, build, tag and publish
     value: ${{ steps.prepare.outputs.revision }}

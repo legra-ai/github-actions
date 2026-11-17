@@ -138,7 +138,7 @@ class UvReleaseTests(unittest.TestCase):
                 patch.object(release, 'output') as output:
             release.prepare()
         output.assert_called_once_with(revision=source, release='true', version='0.6.1a2',
-                                       major_approval_required='false')
+                                       bump_level='minor', approval_required='true')
         api.assert_not_called()
         writer.assert_not_called()
 
@@ -148,16 +148,16 @@ class UvReleaseTests(unittest.TestCase):
         source = self.git('rev-parse', 'HEAD')
         with patch.dict(os.environ, RELEASE_PLAN_ONLY='true'), \
                 patch.object(release, 'release_pending', return_value=False), \
-                patch.object(release, 'require_major_approval') as approval, \
+                patch.object(release, 'require_release_approval') as approval, \
                 patch.object(release, 'write_release_commit') as writer, \
                 patch.object(release, 'output') as output:
             release.prepare()
         output.assert_called_once_with(revision=source, release='true', version='1.0.0',
-                                       major_approval_required='true')
+                                       bump_level='major', approval_required='true')
         approval.assert_not_called()
         writer.assert_not_called()
         with patch.object(release, 'release_pending', return_value=False), \
-                patch.object(release, 'require_major_approval',
+                patch.object(release, 'require_release_approval',
                              side_effect=ValueError('explicit approval required')), \
                 patch.object(release, 'write_release_commit') as writer, \
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
@@ -175,11 +175,11 @@ class UvReleaseTests(unittest.TestCase):
         self.git('commit', '--allow-empty', '-m', 'fix(core): later')
         with patch.dict(os.environ, RELEASE_TAG_FORMAT='pep440'), \
                 patch.object(release, 'release_pending', return_value=True), \
-                patch.object(release, 'require_major_approval') as approval, \
+                patch.object(release, 'require_release_approval') as approval, \
                 patch.object(release, 'write_release_commit') as writer, \
                 patch.object(release, 'output') as output:
             release.prepare()
-        approval.assert_called_once_with('1.0.0a1')
+        approval.assert_called_once_with('major', '1.0.0a1')
         output.assert_called_once_with(revision=source, release='true', version='1.0.0a1')
         writer.assert_not_called()
 
@@ -236,11 +236,14 @@ class UvReleaseTests(unittest.TestCase):
         source = self.git('rev-parse', 'HEAD')
         self.git('-c', 'tag.gpgsign=false', 'tag', 'v0.6.1a2')
         self.git('commit', '--allow-empty', '-m', 'feat(core): later feature')
+        # The first 0.6 release opens a new minor series, so its resume stays gated.
         with patch.dict(os.environ, RELEASE_TAG_FORMAT='pep440'), \
                 patch.object(release, 'release_pending', return_value=True), \
+                patch.object(release, 'require_release_approval') as approval, \
                 patch.object(release, 'write_release_commit') as writer, \
                 patch.object(release, 'output') as output:
             release.prepare()
+        approval.assert_called_once_with('minor', '0.6.1a2')
         output.assert_called_once_with(revision=source, release='true', version='0.6.1a2')
         writer.assert_not_called()
 

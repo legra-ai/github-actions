@@ -79,6 +79,12 @@ is then gated on the exact revision those jobs validated. A tagged but unfinishe
 release is still completed by a later run, because only a publishing run creates
 the tag.
 
+Minor and major releases wait for the owner's review in the caller's
+`release-approval` environment (required reviewer `jgeluk`, no administrator
+bypass) before both the version commit and publication; patch releases are fully
+automatic. Callers must grant `permissions: actions: read` so the shared workflow
+can verify the exact review. See the prepare action's release approval section.
+
 All jobs check out the prepared source revision. Binary packages build six
 platform archives before tagging/publishing, preserve original draft assets on
 recovery, and execute public downloads on Linux, macOS and Windows. Package tests

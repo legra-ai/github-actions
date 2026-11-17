@@ -87,16 +87,17 @@ class WorkflowGraphTests(unittest.TestCase):
         return self.workflow.split(f'\n  {name}:\n', 1)[1].split(f'\n  {following}:\n', 1)[0]
 
     def test_planning_is_read_only(self):
-        prepare = self.job('prepare', 'test')
+        prepare = self.job('prepare', 'approval')
         self.assertIn("RELEASE_PLAN_ONLY: 'true'", prepare)
-        self.assertEqual(prepare.count('prepare-cargo-release/release.py'), 1)
+        self.assertEqual(prepare.count('prepare-cargo-release/release.py"\n'), 1)
+        self.assertEqual(prepare.count('prepare-cargo-release/release.py" summary\n'), 1)
         self.assertNotIn('create-github-app-token', prepare)
         self.assertIn('RUN_REVISION: ${{ github.sha }}', prepare)
         self.assertIn('.github/scripts/release_decision.py', prepare)
 
     def test_version_commit_waits_for_every_validation_job(self):
         version = self.job('version', 'publish')
-        self.assertIn('needs: [prepare, test, binary]', version)
+        self.assertIn('needs: [prepare, approval, test, binary]', version)
         self.assertIn("needs.prepare.outputs.write-version == 'true'", version)
         self.assertIn("needs.test.result == 'success'", version)
         self.assertIn('prepare-cargo-release/release.py', version)
