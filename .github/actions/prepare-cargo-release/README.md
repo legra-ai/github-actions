@@ -86,17 +86,13 @@ For those plans, run a job in a protected GitHub environment named
 so the job always runs and no descendant inherits a skipped ancestor), configured with `jgeluk` as required reviewer and administrator
 bypass disabled. Name the job with the level and proposed version and show the
 workflow source SHA. For a uv project, VERSION uses the Python manifest spelling
-shown by the plan. The reviewer must enter this exact approval comment, where
-LEVEL is `minor` or `major`:
-
-```text
-Approve LEVEL release VERSION from WORKFLOW_SOURCE_SHA
-```
+shown by the plan. Approving that environment is the whole approval; no review
+comment is required.
 
 Run normal preparation only after that job succeeds (or is skipped because the
 plan needs no approval). The action reads GitHub's review history for the current
-run and checks the human identity, environment, exact level, exact version, and
-workflow source; any rejected review in the run blocks it. It does not accept a
+run and checks the human identity and environment of the approval; any
+rejected review in the run blocks it. It does not accept a
 Boolean approval input. The calling workflow needs `actions: read` for this
 lookup. Do not approve the environment through an agent using the owner's
 credentials without the user's explicit approval of that specific release and
