@@ -24,6 +24,14 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(config['recovery_asset'], 'release-packages.zip')
         self.assertEqual(config['assignee'], 'jgeluk')
 
+    def test_status_machina_monitors_its_native_packages_against_the_preserved_archive(self):
+        configs = monitor.load_config(ROOT / '.github/release-health.json')
+        config = next(item for item in configs if item['repository'] == 'legra-ai/status-machina')
+        self.assertEqual(config['registries'], {
+            'crates': 'status-machina', 'npm': '@legra-ai/status-machina', 'pypi': 'status-machina'})
+        self.assertEqual(config['cli_assets'], [])
+        self.assertEqual(config['recovery_asset'], 'release-packages.zip')
+
     def test_monitor_is_scheduled_in_a_different_repository(self):
         workflow = (ROOT / '.github/workflows/release-health.yml').read_text()
         self.assertIn('schedule:', workflow)
