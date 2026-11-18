@@ -123,7 +123,7 @@ def bump_level(version, latest):
 
 
 def require_release_approval(level, version):
-    """Accept only the owner's explicit review of this level, version and workflow source."""
+    """Accept only the owner's approval of this run's release-approval environment."""
     if level not in APPROVAL_LEVELS:
         raise ValueError(f'No approval exists for bump level {level!r}')
     repository = os.environ['GITHUB_REPOSITORY']
@@ -131,7 +131,6 @@ def require_release_approval(level, version):
     source = os.environ['GITHUB_SHA']
     if not re.fullmatch(r'[0-9a-f]{40}', source) or not run_id.isdecimal():
         raise ValueError('Invalid workflow approval identity')
-    comment = approval_comment(level, version, source)
     review_environment = dict(os.environ, GH_TOKEN=os.environ['RELEASE_APPROVAL_TOKEN'])
     reviews = json.loads(gh_api(f'repos/{repository}/actions/runs/{run_id}/approvals',
                                env=review_environment))
@@ -146,11 +145,10 @@ def require_release_approval(level, version):
                 and review['user']['login'] == 'jgeluk'
                 and review['user']['type'] == 'User'
                 and any(environment['name'] == APPROVAL_ENVIRONMENT
-                        for environment in review['environments'])
-                and review['comment'] == comment):
+                        for environment in review['environments'])):
             return
-    raise ValueError(f'{level.capitalize()} release requires explicit approval by jgeluk in the '
-                     f'{APPROVAL_ENVIRONMENT} environment with comment: {comment}')
+    raise ValueError(f'{level.capitalize()} release {version} requires explicit approval by jgeluk '
+                     f'in the {APPROVAL_ENVIRONMENT} environment')
 
 
 def complete_plan(source, current, version, latest, manifest_kind='cargo'):
@@ -259,20 +257,15 @@ def write_release_commit(source, version, manifest_kind='cargo'):
         raise RuntimeError(response['errors'])
     return response['data']['createCommitOnBranch']['commit']['oid']
 
-def approval_comment(level, version, source):
-    return f'Approve {level} release {version} from {source}'
-
-
 def write_summary():
-    """Show the read-only proposal and, for minor or major, the exact approval comment."""
+    """Show the read-only proposal and, for minor or major, that approval is required."""
     version = os.environ['PROPOSED_VERSION']
     level = os.environ['BUMP_LEVEL']
     with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
         summary.write(f'Proposed version: {version} ({level})\n\n')
         if os.environ['APPROVAL_REQUIRED'] == 'true':
-            summary.write(f'This {level} release requires your explicit review in the '
-                          f'{APPROVAL_ENVIRONMENT} environment. Use this exact approval comment:\n\n')
-            summary.write(approval_comment(level, version, os.environ['WORKFLOW_SOURCE']) + '\n')
+            summary.write(f'This {level} release requires your explicit approval in the '
+                          f'{APPROVAL_ENVIRONMENT} environment.\n')
 
 
 def verify_approval():

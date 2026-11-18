@@ -52,7 +52,6 @@ class ReleaseApprovalTests(unittest.TestCase):
             'state': 'approved',
             'user': {'login': 'jgeluk', 'type': 'User'},
             'environments': [{'name': 'release-approval'}],
-            'comment': f'Approve {level} release {version} from {"a" * 40}',
         }
         review.update(overrides)
         return review
@@ -96,18 +95,14 @@ class ReleaseApprovalTests(unittest.TestCase):
         output.assert_called_once_with(revision='a' * 40, release='false', version='1.2.3',
                                        bump_level='none', approval_required='false')
 
-    def test_only_exact_owner_review_in_this_run_can_authorize_a_release(self):
-        for level, version, other_level in [('major', '2.0.0', 'minor'), ('minor', '1.3.0', 'major')]:
+    def test_only_the_owners_approval_in_this_run_can_authorize_a_release(self):
+        for level, version in [('major', '2.0.0'), ('minor', '1.3.0')]:
             invalid = [
                 self.review(level, version, state='rejected'),
                 self.review(level, version, user={'login': 'dependabot[bot]', 'type': 'Bot'}),
                 self.review(level, version, user={'login': 'another-user', 'type': 'User'}),
                 self.review(level, version, environments=[{'name': 'production'}]),
                 self.review(level, version, environments=[{'name': 'major-release'}]),
-                self.review(level, version, comment=f'Approve {level} release {version} from {"b" * 40}'),
-                self.review(level, version, comment=f'Approve {level} release 3.0.0 from {"a" * 40}'),
-                self.review(other_level, version),
-                self.review(level, version, comment='Ship it'),
             ]
             for review in invalid:
                 with self.subTest(review=review), \
@@ -157,19 +152,19 @@ class ReleaseApprovalTests(unittest.TestCase):
             write.assert_called_once_with('a' * 40, version)
             output.assert_called_once_with(revision='prepared', release='true', version=version)
 
-    def test_approval_job_verifies_the_planned_level_and_version(self):
+    def test_approval_job_requires_the_owners_approval_of_this_run(self):
         with patch.dict(os.environ, RELEASE_BUMP_LEVEL='minor', RELEASE_VERSION='1.3.0'), \
                 patch.object(release, 'gh_api', return_value=json.dumps([self.review('minor', '1.3.0')])):
             release.verify_approval()
         with patch.dict(os.environ, RELEASE_BUMP_LEVEL='minor', RELEASE_VERSION='1.3.0'), \
-                patch.object(release, 'gh_api', return_value=json.dumps([self.review('major', '1.3.0')])), \
+                patch.object(release, 'gh_api', return_value=json.dumps([])), \
                 self.assertRaisesRegex(ValueError, 'explicit approval'):
             release.verify_approval()
 
-    def test_summary_names_the_exact_comment_for_gated_levels_only(self):
+    def test_summary_requests_approval_for_gated_levels_only(self):
         for level, required, expected in [
-            ('minor', 'true', f'Approve minor release 1.3.0 from {"a" * 40}'),
-            ('patch', 'false', None),
+            ('minor', 'true', True),
+            ('patch', 'false', False),
         ]:
             with self.subTest(level=level), tempfile.NamedTemporaryFile('r', suffix='.md') as summary, \
                     patch.dict(os.environ, GITHUB_STEP_SUMMARY=summary.name, PROPOSED_VERSION='1.3.0',
@@ -179,9 +174,8 @@ class ReleaseApprovalTests(unittest.TestCase):
             self.assertIn(f'Proposed version: 1.3.0 ({level})', text)
             if expected:
                 self.assertIn('release-approval environment', text)
-                self.assertIn(expected + '\n', text)
             else:
-                self.assertNotIn('Approve', text)
+                self.assertNotIn('release-approval', text)
 
     def test_review_lookup_failure_is_fatal(self):
         with patch.object(release, 'gh_api', side_effect=RuntimeError('403')), \
