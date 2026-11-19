@@ -104,7 +104,7 @@ jobs:
           if tomllib.loads(Path('Cargo.toml').read_text())['package']['name'] != os.environ['RELEASE_CRATE']:
               raise ValueError('Maintenance package differs from manifest')
           PY
-      - uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-version-info@1.0.13
       # Read-only. The version commit is written by `version` only after this
@@ -304,7 +304,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-      - uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-version-info@1.0.13
       - id: prepare
