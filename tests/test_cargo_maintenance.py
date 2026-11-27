@@ -214,6 +214,8 @@ class LatestMacOSTests(unittest.TestCase):
     def test_arm64_binary_build_and_install_validation_use_latest_macos(self):
         workflow = (ROOT / '.github/workflows/cargo-maintenance.yml').read_text()
         self.assertEqual(workflow.count('- os: macos-latest\n            target: aarch64-apple-darwin'), 2)
+        self.assertNotIn('x86_64-apple-darwin', workflow)
+        self.assertNotIn('macos-15-intel', workflow)
 
     def test_shared_policy_is_itself_validated_on_latest_macos(self):
         workflow = (ROOT / '.github/workflows/release-action-tests.yml').read_text()

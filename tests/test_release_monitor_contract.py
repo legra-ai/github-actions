@@ -20,7 +20,8 @@ class ContractTests(unittest.TestCase):
         config = next(item for item in configs if item['repository'] == 'legra-ai/dotenvage')
         self.assertEqual(config['registries'], {
             'crates': 'dotenvage', 'npm': '@dotenvage/node', 'pypi': 'dotenvage'})
-        self.assertEqual(len(config['cli_assets']), 6)
+        self.assertEqual(len(config['cli_assets']), 5)
+        self.assertFalse(any('x86_64-apple-darwin' in asset for asset in config['cli_assets']))
         self.assertEqual(config['recovery_asset'], 'release-packages.zip')
         self.assertEqual(config['assignee'], 'jgeluk')
 
@@ -79,8 +80,9 @@ class CargoFleetTests(unittest.TestCase):
         existing = monitor.load_config(ROOT / '.github/release-health.json')
         self.assertTrue({c['repository'] for c in existing}.isdisjoint(c['repository'] for c in configs))
         for config in configs:
-            expected = 6 if config['registries']['crates'] in names - {'cargo-plugin-utils', 'rhusky', 'release-version'} else 0
+            expected = 5 if config['registries']['crates'] in names - {'cargo-plugin-utils', 'rhusky', 'release-version'} else 0
             self.assertEqual(len(config['cli_assets']), expected)
+            self.assertFalse(any('x86_64-apple-darwin' in asset for asset in config['cli_assets']))
             self.assertEqual(config['assignee'], 'jgeluk')
         workflow = (ROOT / '.github/workflows/release-health.yml').read_text()
         self.assertIn('.github/release-health-cargo.json', workflow)

@@ -48,7 +48,8 @@ runs:
           if [[ "$(uname -m)" == "arm64" ]]; then
             PLATFORM="aarch64-apple-darwin"
           else
-            PLATFORM="x86_64-apple-darwin"
+            echo "::error::Intel macOS ($(uname -m)) is not supported; use an Apple Silicon runner" >&2
+            exit 1
           fi
           ARCHIVE="tar.gz"
         elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
