@@ -39,7 +39,6 @@
       },
       "cli_assets": [
         "cargo-version-info-aarch64-apple-darwin.zip",
-        "cargo-version-info-x86_64-apple-darwin.zip",
         "cargo-version-info-aarch64-unknown-linux-gnu.zip",
         "cargo-version-info-x86_64-unknown-linux-gnu.zip",
         "cargo-version-info-aarch64-pc-windows-msvc.zip",
@@ -56,7 +55,6 @@
       },
       "cli_assets": [
         "cargo-fmt-toml-aarch64-apple-darwin.zip",
-        "cargo-fmt-toml-x86_64-apple-darwin.zip",
         "cargo-fmt-toml-aarch64-unknown-linux-gnu.zip",
         "cargo-fmt-toml-x86_64-unknown-linux-gnu.zip",
         "cargo-fmt-toml-aarch64-pc-windows-msvc.zip",
@@ -73,7 +71,6 @@
       },
       "cli_assets": [
         "cargo-nightly-aarch64-apple-darwin.zip",
-        "cargo-nightly-x86_64-apple-darwin.zip",
         "cargo-nightly-aarch64-unknown-linux-gnu.zip",
         "cargo-nightly-x86_64-unknown-linux-gnu.zip",
         "cargo-nightly-aarch64-pc-windows-msvc.zip",
@@ -90,7 +87,6 @@
       },
       "cli_assets": [
         "cargo-propagate-features-aarch64-apple-darwin.zip",
-        "cargo-propagate-features-x86_64-apple-darwin.zip",
         "cargo-propagate-features-aarch64-unknown-linux-gnu.zip",
         "cargo-propagate-features-x86_64-unknown-linux-gnu.zip",
         "cargo-propagate-features-aarch64-pc-windows-msvc.zip",
