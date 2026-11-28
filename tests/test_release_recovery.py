@@ -33,7 +33,8 @@ class RecoveryTests(unittest.TestCase):
         self.tagged = self.git('rev-parse', 'HEAD')
         self.git('-c', 'tag.gpgsign=false', 'tag', 'v1.2.3')
         self.git('remote', 'add', 'origin', self.directory.name)
-        env = patch.dict(os.environ, GITHUB_REF='refs/heads/main', GITHUB_REPOSITORY='owner/example')
+        env = patch.dict(os.environ, GITHUB_REF='refs/heads/main', GITHUB_REPOSITORY='owner/example',
+                         RELEASE_BUMP='conventional')
         env.start()
         self.addCleanup(env.stop)
 

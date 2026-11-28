@@ -5,8 +5,8 @@ inputs:
     required: true
     description: Authorized writer token (the release-writer GitHub App, minted per run and scoped to this repository); records the version commit on main
   release-bump:
-    description: Automatic increment policy (conventional or patch); patch caps every releasable change after commit validation
-    default: conventional
+    description: Automatic increment policy (patch or conventional); patch, the default, caps every releasable change after commit validation
+    default: patch
   breaking-change-bump:
     description: Bump level for breaking changes (major or minor); use minor only under an explicit pre-production release policy
     default: major

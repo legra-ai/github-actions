@@ -1,3 +1,4 @@
+from pathlib import Path
 """Release decisions must include unattended changes without duplicate releases."""
 
 import importlib.util
@@ -11,6 +12,17 @@ spec.loader.exec_module(release)
 
 
 class ReleasePlanTests(unittest.TestCase):
+    def test_patch_only_is_the_default_policy(self):
+        root = Path(__file__).parents[1]
+        action = (root / '.github/actions/prepare-cargo-release/action.yml').read_text(encoding='utf-8')
+        release_bump = action.split('  release-bump:\n', 1)[1].split('\n  breaking-change-bump:', 1)[0]
+        self.assertIn('default: patch', release_bump)
+        workflow = (root / '.github/workflows/cargo-maintenance.yml').read_text(encoding='utf-8')
+        release_bump = workflow.split('      release-bump:\n', 1)[1].split('      breaking-change-bump:', 1)[0]
+        self.assertIn('default: patch', release_bump)
+        source = (root / '.github/actions/prepare-cargo-release/release.py').read_text(encoding='utf-8')
+        self.assertIn("os.environ.get('RELEASE_BUMP', 'patch')", source)
+
     def test_patch_only_policy_caps_features_and_breaking_changes_after_validation(self):
         for messages in [
             ['fix(core): repair'], ['feat(core): add'], ['feat(core)!: replace'],

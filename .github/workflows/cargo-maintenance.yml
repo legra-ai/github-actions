@@ -11,8 +11,8 @@ on:
         default: library
         type: string
       release-bump:
-        description: Automatic release increment policy (conventional or patch)
-        default: conventional
+        description: Automatic release increment policy (patch or conventional)
+        default: patch
         type: string
       breaking-change-bump:
         description: Version increment for breaking changes (major or minor)

@@ -14,7 +14,8 @@ class MaintenanceTests(unittest.TestCase):
             section = workflow.split(f'      - id: {step}\n', 1)[1].split('      - ', 1)[0]
             self.assertIn('RELEASE_BUMP: ${{ inputs.release-bump }}', section)
         self.assertIn('      release-bump:\n', workflow)
-        self.assertIn('default: conventional', workflow)
+        release_bump = workflow.split('      release-bump:\n', 1)[1].split('      breaking-change-bump:', 1)[0]
+        self.assertIn('default: patch', release_bump)
         action = (ROOT / '.github/actions/prepare-cargo-release/action.yml').read_text()
         self.assertIn('RELEASE_BUMP: ${{ inputs.release-bump }}', action)
 
