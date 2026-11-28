@@ -124,12 +124,13 @@ minor release approval, as does any actual major-number increase, including
 manual manifests and initial releases. This option does not
 authorize renumbering published versions or lowering the manifest behind a tag.
 
-## Explicit patch-only releases
+## Patch-only releases (default)
 
-An owner-approved pre-production repository may select `release-bump: patch` in
-both the read-only plan and release preparation, or once in the shared
-`cargo-maintenance.yml` workflow that supplies both paths. The default remains
-`conventional`. Patch-only selection validates every Conventional Commit first,
+The legra-ai repositories are pre-production with no outside users, so
+`release-bump` defaults to `patch` in both this action and the shared
+`cargo-maintenance.yml` workflow. A repository that has outside users selects
+`release-bump: conventional` explicitly, in both the read-only plan and release
+preparation (or once in `cargo-maintenance.yml`). Patch-only selection validates every Conventional Commit first,
 then caps each automatic releasable increment at a patch, including features and
 breaking changes. Retain accurate breaking-change markers. Documentation, style
 and CI changes alone still do not trigger publication.
