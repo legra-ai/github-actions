@@ -215,7 +215,7 @@ def prepare():
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tags[tag] if tag else None, messages,
                            os.environ.get('RELEASE_BREAKING_CHANGE_BUMP', 'major'),
-                           os.environ.get('RELEASE_BUMP', 'conventional'))
+                           os.environ.get('RELEASE_BUMP', 'patch'))
     complete_plan(source, current, version, tags[tag] if tag else None,
                   manifest_kind=manifest_kind)
 

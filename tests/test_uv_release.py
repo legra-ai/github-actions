@@ -48,7 +48,7 @@ class UvReleaseTests(unittest.TestCase):
             values.pop(name, None)
         values.update(UV_PYTHON=sys.executable, GITHUB_REF='refs/heads/main',
                       GITHUB_REPOSITORY='owner/fixture', RELEASE_MANIFEST_KIND='uv',
-                      RELEASE_TAG_FORMAT='semver')
+                      RELEASE_TAG_FORMAT='semver', RELEASE_BUMP='conventional')
         environment = patch.dict(os.environ, values, clear=True)
         environment.start()
         self.addCleanup(environment.stop)
