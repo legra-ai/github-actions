@@ -1,5 +1,6 @@
 """Publish only the tested checkout and require public source identity on every run."""
 
+import json
 import os
 from pathlib import Path
 import re
@@ -10,9 +11,38 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'verify-registry-publicati
 from verification import API, NotPublished, Verifier, await_publication
 
 
+class PackageSources:
+    """Map `cargo package --list` entries, relative to the package root, to their checkout sources."""
+
+    def __init__(self, crate):
+        metadata = json.loads(subprocess.check_output(
+            ['cargo', 'metadata', '--locked', '--no-deps', '--format-version', '1'], text=True))
+        packages = [package for package in metadata['packages'] if package['name'] == crate]
+        if len(packages) != 1:
+            raise ValueError(f'Workspace must contain exactly one package named {crate}')
+        package = packages[0]
+        self.directory = Path(package['manifest_path']).resolve().parent
+        # Cargo stages the workspace lockfile and out-of-package readme/license
+        # files at the package root under their own file names.
+        self.relocated = {'Cargo.lock': Path(metadata['workspace_root']).resolve() / 'Cargo.lock'}
+        for field in ('readme', 'license_file'):
+            if package.get(field):
+                source = (self.directory / package[field]).resolve()
+                if source.parent != self.directory:
+                    self.relocated.setdefault(source.name, source)
+
+    def source(self, name):
+        """Return the checkout path, relative to the current directory, that Cargo packages as `name`."""
+        path = self.directory / name
+        if name in self.relocated and not path.exists():
+            path = self.relocated[name]
+        return os.path.relpath(path)
+
+
 def assert_clean_package(crate):
     """Generated staging files may exist, but every package input must be committed."""
     subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], check=True)
+    sources = PackageSources(crate)
     # Cargo generates these from its metadata and the committed manifest.
     generated = {'.cargo_vcs_info.json', 'Cargo.toml.orig'}
     command = ['cargo', 'package', '--locked', '--allow-dirty', '--list', '--package', crate]
@@ -26,7 +56,7 @@ def assert_clean_package(crate):
                 if name in generated:
                     continue
                 result = subprocess.run(
-                    ['git', '--literal-pathspecs', 'ls-files', '--error-unmatch', '--', name],
+                    ['git', '--literal-pathspecs', 'ls-files', '--error-unmatch', '--', sources.source(name)],
                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
                 if result.returncode != 0:
                     raise ValueError(f'Package contains an uncommitted source input: {name}: {result.stderr}')
