@@ -132,13 +132,24 @@ jobs:
           echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
           echo "Bumped to version: $NEW_VERSION"
 
+      # The version commit goes straight to main, so it must be made by the
+      # release-writer GitHub App: the App is the bypass actor on the caller's
+      # required-status-checks ruleset (version bumps are allowed to skip the PR
+      # checks), which github-actions[bot] can never be.
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
+        id: writer
+        with:
+          app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_WRITER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
       # Land the bump commit using GraphQL createCommitOnBranch so it is
       # signed by GitHub's web-flow key. A plain `git push` would be
-      # rejected by the "Commits must have verified signatures" ruleset
-      # because github-actions[bot] cannot be granted bypass.
+      # rejected by the "Commits must have verified signatures" ruleset.
       - name: Push verified commit via GraphQL
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.writer.outputs.token }}
           REPO: ${{ github.repository }}
           EXPECTED_OID: ${{ github.sha }}
           VERSION_FILES: ${{ inputs.version-files }}
