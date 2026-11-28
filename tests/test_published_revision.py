@@ -15,6 +15,13 @@ publish = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publish)
 
 
+class RootPackage:
+    """A root package whose packaged paths are checkout paths."""
+
+    def source(self, name):
+        return name
+
+
 class PublishedRevisionTests(unittest.TestCase):
     def test_successful_cargo_upload_still_requires_public_archive_verification(self):
         with patch.dict(os.environ, RELEASE_CRATE='example', RELEASE_VERSION='1.2.3',
@@ -81,9 +88,47 @@ class PackageInputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(['git', 'clone', '--quiet', '--local', str(root), directory], check=True)
             (pathlib.Path(directory) / 'untracked.rs').write_text('fn main() {}\n')
-            with contextlib.chdir(directory), patch.object(publish.subprocess, 'Popen', side_effect=spawn):
+            with contextlib.chdir(directory), patch.object(publish.subprocess, 'Popen', side_effect=spawn), \
+                    patch.object(publish, 'PackageSources', return_value=RootPackage()):
                 with self.assertRaisesRegex(ValueError, 'untracked.rs'):
                     publish.assert_clean_package('example')
+
+    def workspace_member(self, directory):
+        """A virtual workspace whose only publishable crate lives in a subdirectory with a build script."""
+        import subprocess
+        root = pathlib.Path(directory)
+        (root / 'Cargo.toml').write_text('[workspace]\nresolver = "3"\nmembers = ["crates/member"]\n\n'
+                                         '[workspace.package]\nversion = "0.1.0"\n')
+        crate = root / 'crates/member'
+        (crate / 'src').mkdir(parents=True)
+        (crate / 'Cargo.toml').write_text('[package]\nname = "member"\nversion.workspace = true\n'
+                                          'edition = "2021"\nlicense = "MIT"\ndescription = "member"\n'
+                                          'build = "build.rs"\n')
+        (crate / 'build.rs').write_text('fn main() {}\n')
+        (crate / 'src/lib.rs').write_text('//! member\n')
+        subprocess.run(['cargo', 'generate-lockfile', '--offline'], cwd=root, check=True)
+        subprocess.run(['git', 'init', '--quiet'], cwd=root, check=True)
+        subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+        subprocess.run(['git', '-c', 'user.name=test', '-c', 'user.email=test@example.invalid',
+                        'commit', '--quiet', '-m', 'init'], cwd=root, check=True)
+        return crate
+
+    def test_workspace_member_in_subdirectory_resolves_packaged_paths_from_its_manifest(self):
+        import contextlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            self.workspace_member(directory)
+            with contextlib.chdir(directory):
+                publish.assert_clean_package('member')
+
+    def test_workspace_member_untracked_packaged_source_cannot_publish(self):
+        import contextlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            crate = self.workspace_member(directory)
+            (crate / 'src/extra.rs').write_text('// untracked\n')
+            with contextlib.chdir(directory), self.assertRaisesRegex(ValueError, 'src/extra.rs'):
+                publish.assert_clean_package('member')
 
     def test_package_file_limit_stops_the_producer(self):
         from unittest.mock import MagicMock
@@ -92,7 +137,8 @@ class PackageInputTests(unittest.TestCase):
         listing.stdout = ('.cargo_vcs_info.json\n' for _ in range(10000))
         listing.poll.return_value = None
         listing.wait.return_value = 0
-        with patch.object(publish.subprocess, 'run'), patch.object(publish.subprocess, 'Popen', return_value=listing):
+        with patch.object(publish.subprocess, 'run'), patch.object(publish.subprocess, 'Popen', return_value=listing), \
+                patch.object(publish, 'PackageSources', return_value=RootPackage()):
             with self.assertRaisesRegex(ValueError, '5,000-file'):
                 publish.assert_clean_package('example')
         listing.kill.assert_called_once()
