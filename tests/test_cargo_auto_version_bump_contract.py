@@ -29,5 +29,13 @@ class CargoAutoVersionBumpContractTests(unittest.TestCase):
         self.assertNotIn("cog bump --patch", WORKFLOW)
 
 
+    def test_version_commit_is_made_by_the_release_writer_app(self) -> None:
+        """The bump commit lands on main, past the required checks, only as the writer App."""
+        step = WORKFLOW.split("      - name: Push verified commit via GraphQL\n", 1)[1].split("        run: |", 1)[0]
+        self.assertIn("GH_TOKEN: ${{ steps.writer.outputs.token }}", step)
+        self.assertIn("app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}", WORKFLOW)
+        self.assertNotIn("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          REPO:", WORKFLOW)
+
+
 if __name__ == "__main__":
     unittest.main()
